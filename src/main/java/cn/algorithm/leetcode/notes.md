@@ -261,3 +261,113 @@ class Solution {
 ```
 
 
+
+
+
+### [133. 克隆图](https://leetcode-cn.com/problems/clone-graph/)
+
+###### label：无向图的遍历、dfs、bfs
+#### 描述：
+
+> 难度中等
+>
+> 给你无向 **[连通](https://baike.baidu.com/item/连通图/6460995?fr=aladdin)** 图中一个节点的引用，请你返回该图的 [**深拷贝**](https://baike.baidu.com/item/深拷贝/22785317?fr=aladdin)（克隆）。
+>
+> 图中的每个节点都包含它的值 `val`（`int`） 和其邻居的列表（`list[Node]`）。
+>
+> ```
+>class Node {
+>  public int val;
+>  public List<Node> neighbors;
+>    }
+>    ```
+> 
+> **测试用例格式：**
+>
+> 简单起见，每个节点的值都和它的索引相同。例如，第一个节点值为 1（`val = 1`），第二个节点值为 2（`val = 2`），以此类推。该图在测试用例中使用邻接列表表示。
+>
+> **邻接列表** 是用于表示有限图的无序列表的集合。每个列表都描述了图中节点的邻居集。
+>
+> 给定节点将始终是图中的第一个节点（值为 1）。你必须将 **给定节点的拷贝** 作为对克隆图的引用返回。
+
+#### 写在前面
+>  图的遍历与树最大的不同之处在于，若根据边找需遍历的点会陷入死循环，所以在遍历过程需要用一种数据结构记录已经被遍历的点。可以使用哈希表存储已遍历的点，若点中的值是具有唯一性的就可以用节点的值作为键，或者用节点作为键也行，但需要重写hash函数。
+
+
+#### 方法一：dfs递归
+##### 思路：
+
+> 递归遍历图的所有领接点，遍历过程每遍历一个节点就将其加入哈希表中，标识该节点已遍历完，每个节点都遍历完了就返回值。
+
+##### 复杂度：
+
+> 时间复杂度：O(n)，其中n为节点数。
+>
+> 空间复杂度：O(n)，其中n节点数。主要为哈希表标识节点是否已遍历开销。
+
+##### 代码：
+```java
+class Solution {
+    public Node cloneGraph(Node node) {
+        Map<Integer, Node> lookup = new HashMap<>();
+        return dfs(node, lookup);
+    }
+    Node dfs(Node node, Map<Integer,Node> nodeMap){
+        if(node == null){
+            return null;
+        }
+        // 若已经遍历过该节点就直接返回
+        if (nodeMap.containsKey(node.val)){
+            return nodeMap.get(node.val);
+        }
+        Node clone = new Node(node.val, new ArrayList<>());
+        // 标识该节点已遍历过
+        nodeMap.put(node.val, clone);
+        for (Node neighbor : node.neighbors) {
+            clone.neighbors.add(dfs(neighbor,nodeMap));
+        }
+        return clone;
+    }
+}
+```
+
+#### 方法二：bfs
+##### 思路：
+
+> 使用一个队列来存储待遍历的领接点，依次遍历即可。
+>
+
+> 时间复杂度：O(n)，其中n为节点数。
+>
+> 空间复杂度：O(n)，其中n节点数。主要为哈希表标识节点是否已遍历开销。
+
+##### 代码：
+```java
+class Solution {
+	public Node cloneGraph(Node node) {
+        if (node == null) {
+            return null;
+        }
+        Node clone = new Node(node.val, new ArrayList<>());
+        Map<Integer, Node> nodeMap = new HashMap<>();
+        nodeMap.put(node.val, clone);
+        Deque<Node> queue = new LinkedList<>();
+        queue.offer(node);
+        while (!queue.isEmpty()) {
+            Node curNode = queue.poll();
+            for (Node neighbor : curNode.neighbors) {
+                // 未遍历过，加入队列，标识已遍历（初始化领接点，此时不知道有哪些领接点每到添加的时候）
+                if (!nodeMap.containsKey(neighbor.val)) {
+                    queue.offer(neighbor);
+                    nodeMap.put(neighbor.val, new Node(neighbor.val, new ArrayList<>()));
+                }
+                // 已经遍历过，取到该值，将领接点添加进去
+                nodeMap.get(curNode.val).neighbors.add(nodeMap.get(neighbor.val));
+            }
+        }
+        return clone;
+    }
+}
+```
+
+
