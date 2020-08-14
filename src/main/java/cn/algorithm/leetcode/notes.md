@@ -1,4 +1,255 @@
 
+
+###  [20. 有效的括号](https://leetcode-cn.com/problems/valid-parentheses/)
+
+###### label：有效括号、栈
+#### 描述：
+
+> 难度简单
+>
+> 给定一个只包括 `'('`，`')'`，`'{'`，`'}'`，`'['`，`']'` 的字符串，判断字符串是否有效。
+>
+> 有效字符串需满足：
+>
+> 1. 左括号必须用相同类型的右括号闭合。
+> 2. 左括号必须以正确的顺序闭合。
+>
+> 注意空字符串可被认为是有效字符串。
+>
+> **示例 1:**
+> ```
+> 输入: "()"
+> 输出: true
+> ```
+>
+> **示例 2:**
+> ```
+> 输入: "()[]{}"
+> 输出: true
+> ```
+>
+> **示例 3:**
+> ```
+> 输入: "(]"
+> 输出: false
+> ```
+>
+> **示例 4:**
+> ```
+> 输入: "([)]"
+> 输出: false
+> ```
+>
+> **示例 5:**
+> ```
+> 输入: "{[]}"
+> 输出: true
+> ```
+
+#### 方法一：栈+map存符号对
+##### 思路：
+
+> 依次将字符入栈，入栈前若遇到配对的符号就弹出配对符号，继续下个字符。最后栈中剩下的符号就是未配对的符号。符号对使用map存储。
+
+##### 复杂度：
+
+> 时间复杂度：O(n)
+>
+> 空间复杂度：O(n+m)，其中n为栈开销m为字符集个数。
+
+##### 代码：
+```java
+public boolean isValid(String s) {
+        int len = s.length();
+        if (len == 0) {
+            return true;
+        }
+        // 优化，奇数长度直接返回false
+        if ((len % 2) == 1 ){
+            return false;
+        }
+    	// 匹配的字符串对
+        Map<Character, Character> characterMap = new HashMap<Character, Character>(8) {{
+            put('(', ')');
+            put('{', '}');
+            put('[', ']');
+        }};
+        LinkedList<Character> stack = new LinkedList<>();
+        stack.push(s.charAt(0));
+        for (int i = 1; i < s.length(); i++) {
+            if (!stack.isEmpty() && characterMap.getOrDefault(stack.peek(), '0') == s.charAt(i)) {
+                stack.pop();
+            } else {
+                stack.push(s.charAt(i));
+            }
+        }
+        return stack.isEmpty();
+}
+```
+
+#### 方法二：栈+多个判断符号对
+##### 思路：
+
+> 依次将字符入栈，入栈前判断是否为开始符号，若为开始符号则将其结束符号入栈，否则看栈顶元素是否为对应结束符号，是则继续下个字符，反之则不匹配可直接返回了。最后栈中剩下的符号就是未配对的符号。
+>
+> 这个与使用map存储符号对不同的是，在入栈时直接入对应的结束符号，判断是否匹配看结束符号是否相等就可以了，就不用找符号对了。
+
+##### 复杂度：
+
+> 时间复杂度：O(n)
+>
+> 空间复杂度：O(n)，其中n为栈开销。
+
+##### 代码：
+```java
+public boolean isValid(String s) {
+        LinkedList<Character> stack = new LinkedList<>();
+        for (char c : s.toCharArray()) {
+            if (c == '[') {
+                stack.push(']');
+            } else if (c == '(') {
+                stack.push(')');
+            } else if (c == '{') {
+                stack.push('}');
+            } else if (stack.isEmpty() || c != stack.pop()) {
+                return false;
+            }
+        }
+        return stack.isEmpty();
+    }
+```
+
+
+
+### [43. 字符串相乘](https://leetcode-cn.com/problems/multiply-strings/)
+
+###### label：大数乘法、大数加法、数学
+#### 描述：
+
+> 难度中等
+>
+> 给定两个以字符串形式表示的非负整数 `num1` 和 `num2`，返回 `num1` 和 `num2` 的乘积，它们的乘积也表示为字符串形式。
+>
+> **示例 1:**
+>
+> ```
+> 输入: num1 = "2", num2 = "3"
+> 输出: "6"
+> ```
+>
+> **示例 2:**
+>
+> ```
+> 输入: num1 = "123", num2 = "456"
+> 输出: "56088"
+> ```
+>
+> **说明：**
+>
+> 1. `num1` 和 `num2` 的长度小于110。
+> 2. `num1` 和 `num2` 只包含数字 `0-9`。
+> 3. `num1` 和 `num2` 均不以零开头，除非是数字 0 本身。
+> 4. **不能使用任何标准库的大数类型（比如 BigInteger）**或**直接将输入转换为整数来处理**。
+>
+
+
+#### 方法一：做加法思想
+##### 思路：
+
+> 按照传统方式用递等式方式，先依次相乘再相加，在相加过程中可以用往后补零的方式或者相加时错位。在做大数相加时主要把进位、长度不一致加0、处理错位时要注意在按位加之前初始化时把偏移量处理好。
+
+##### 复杂度：
+
+> 时间复杂度：O(n*m)，其中nm分别为字符串num1和num2的长度
+>
+> 空间复杂度：O(1)
+
+##### 代码：
+```java
+public String multiply(String num1, String num2) {
+        if ("0".equals(num1) || "0".equals(num2)) {
+            return "0";
+        }
+        int len1 = num1.length(), len2 = num2.length();
+        StringBuilder sum = new StringBuilder();
+        for (int i = len1 - 1; i >= 0; i--) {
+            StringBuilder sb = new StringBuilder("0");
+            for (int j = len2 - 1; j >= 0; j--) {
+                sb = addStrings(sb + "", ((num2.charAt(j) - '0') * (num1.charAt(i) - '0')) + "", len2 - j - 1);
+            }
+            sum = addStrings(sum + "", sb + "", len1 - i - 1);
+        }
+        return sum.toString();
+}
+
+StringBuilder addStrings(String num1, String num2, int offset) {
+        if (offset < 0) {
+            throw new RuntimeException("偏移量不支持负数");
+        }
+        StringBuilder sb = new StringBuilder();
+        int len1 = num1.length();
+        int len2 = num2.length();
+        int carry = 0;
+        // 在j初始化时需要把偏移量处理好
+        for (int i = len1 - 1, j = len2 - 1 + offset; i >= 0 || j >= 0; i--, j--) {
+            int a = carry + (i >= 0 ? num1.charAt(i) - '0' : 0) + (j >= 0 && j < len2 ? num2.charAt(j) - '0' : 0);
+            sb.append(a % 10);
+            carry = a / 10;
+        }
+        if (carry > 0) {
+            sb.append(carry);
+        }
+        return sb.reverse();
+}
+```
+
+
+#### 方法二：做乘法思想
+##### 思路：
+
+> 先逐位相乘，将乘得的值放在指定位置，同位置上的值累加；累加后处理进位，每个位置上的值超过一位数就要向前进位；若前导为0（乘得的值长度为n+m）则需进行处理，最后转为字符串即可。
+>
+> 关键要找准乘后值位数的关系，n长度和m长度的值乘后的值长度为n+m或n+m-1。对应位置关系为**arr[i+j+1] += num1[i] * num2[j]**，arr为存放乘得数字的数组，i j 分别为字符串中字符的对应位置。
+
+##### 复杂度：
+
+> 时间复杂度：O(n*m)，其中nm分别为字符串num1和num2的长度
+>
+> 空间复杂度：O(n+m)
+
+##### 代码：
+```java
+public String multiply(String num1, String num2) {
+        if ("0".equals(num1) || "0".equals(num2)) {
+            return "0";
+        }
+        int len1 = num1.length(), len2 = num2.length();
+        int[] ans = new int[len1 + len2];
+        // 先逐位相乘，将值放在指定位置，同位置上的数累加
+        for (int i = len1 - 1; i >= 0; i--) {
+            int x = num1.charAt(i) - '0';
+            for (int j = len2 - 1; j >= 0; j--) {
+                int y = num2.charAt(j) - '0';
+                ans[i + j + 1] += x * y;
+            }
+        }
+        // 处理进位
+        for (int i = len1 + len2 - 1; i > 0; i--) {
+            ans[i - 1] += ans[i] / 10;
+            ans[i] %= 10;
+        }
+        // 处理前导
+        int index = ans[0] == 0 ? 1 : 0;
+        StringBuffer sb = new StringBuffer();
+        while (index < ans.length) {
+            sb.append(ans[index++]);
+        }
+        return sb.toString();
+}
+```
+
+
+
 ### [130. 被围绕的区域](https://leetcode-cn.com/problems/surrounded-regions/)
 
 ###### label：图连通性问题、dfs、bfs
@@ -261,9 +512,6 @@ class Solution {
 ```
 
 
-
-
-
 ### [133. 克隆图](https://leetcode-cn.com/problems/clone-graph/)
 
 ###### label：无向图的遍历、dfs、bfs
@@ -371,3 +619,76 @@ class Solution {
 ```
 
 
+
+
+
+### [415. 字符串相加](https://leetcode-cn.com/problems/add-strings/)
+###### label：大数相加、双指针
+
+#### 描述：
+
+> 难度简单
+>
+> 给定两个字符串形式的非负整数 `num1` 和`num2` ，计算它们的和。
+>
+>  **提示：**
+>
+> 1. `num1` 和`num2` 的长度都小于 5100
+> 2. `num1` 和`num2` 都只包含数字 `0-9`
+> 3. `num1` 和`num2` 都不包含任何前导零
+> 4. **你不能使用任何內建 BigInteger 库， 也不能直接将输入的字符串转换为整数形式**
+
+#### 方法一：
+##### 思路：
+
+> 同时倒序遍历两个字符串，遍历到的索引超出范围相加时就补零，还需注意处理好进位。
+
+##### 复杂度：
+
+> 时间复杂度：O(n)，n 为num1和num2中较长的长度
+>
+> 空间复杂度：O(1)
+
+##### 代码：
+```java
+public String addStrings(String num1, String num2) {
+        StringBuilder sb = new StringBuilder();
+        int carry = 0;
+        for (int i = num1.length() - 1, j = num2.length() - 1; i >= 0 || j >= 0; i--, j--) {
+            int a = carry + (i >= 0 ? num1.charAt(i)-'0' : 0) + (j >= 0 ? num2.charAt(j)-'0' : 0);
+            sb.append(a % 10);
+            carry = a / 10;
+        }
+        if(carry > 0){
+            sb.append(carry);
+        }
+        return sb.reverse().toString();
+}
+```
+
+
+
+###  [xx.模板](https://leetcode-cn.com//)
+
+###### label：xx、yy
+#### 描述：
+
+> 难度简单
+>
+> xxx
+
+#### 方法一：XX
+##### 思路：
+
+> XX。
+
+##### 复杂度：
+
+> 时间复杂度：O(n)
+>
+> 空间复杂度：O(n)，其中n为栈开销。
+
+##### 代码：
+```java
+code
+```

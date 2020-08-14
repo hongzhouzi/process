@@ -23,11 +23,11 @@ public class P0043_MultiplyStrings {
     public static void main(String[] args) {
         String num1 = "1234", num2 = "654321";
         System.out.println(1234 * 654321);
+        System.out.println(multiply(num1, num2));
         System.out.println(multiply1(num1, num2));
 
         System.out.println(addStrings("12", "31", 3));
         System.out.println(addStrings("12", "31", 0));
-        System.out.println(addStrings("12", "31", -1));
 
     }
 
@@ -68,12 +68,12 @@ public class P0043_MultiplyStrings {
         }
         int len1 = num1.length(), len2 = num2.length();
         int[] ans = new int[len1 + len2];
-        // 先逐位相乘，将值放在指定位置
+        // 先逐位相乘，将值放在指定位置，同位置上的数累加
         for (int i = len1 - 1; i >= 0; i--) {
             int x = num1.charAt(i) - '0';
             for (int j = len2 - 1; j >= 0; j--) {
                 int y = num2.charAt(j) - '0';
-                ans[i + j + 1] = x * y;
+                ans[i + j + 1] += x * y;
             }
         }
         // 处理进位
