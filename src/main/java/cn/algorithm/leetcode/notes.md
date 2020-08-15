@@ -1,4 +1,4 @@
-
+​	
 
 ###  [20. 有效的括号](https://leetcode-cn.com/problems/valid-parentheses/)
 
@@ -524,12 +524,12 @@ class Solution {
 > 图中的每个节点都包含它的值 `val`（`int`） 和其邻居的列表（`list[Node]`）。
 >
 > ```
->class Node {
+> class Node {
 >  public int val;
 >  public List<Node> neighbors;
 >    }
->    ```
-> 
+> ```
+>
 > **测试用例格式：**
 >
 > 简单起见，每个节点的值都和它的索引相同。例如，第一个节点值为 1（`val = 1`），第二个节点值为 2（`val = 2`），以此类推。该图在测试用例中使用邻接列表表示。
@@ -663,6 +663,102 @@ public String addStrings(String num1, String num2) {
             sb.append(carry);
         }
         return sb.reverse().toString();
+}
+```
+
+
+
+
+
+
+
+### [632. 最小区间](https://leetcode-cn.com/problems/smallest-range-covering-elements-from-k-lists/)
+
+
+###### label：堆、优先队列、哈希表+滑动窗口
+#### 描述：
+
+> 难度困难
+>
+> 你有 `k` 个升序排列的整数列表。找到一个**最小**区间，使得 `k` 个列表中的每个列表至少有一个数包含在其中。
+>
+> 我们定义如果 `b-a < d-c` 或者在 `b-a == d-c` 时 `a < c`，则区间 [a,b] 比 [c,d] 小。
+>
+> **示例：**
+>
+> ```
+> 输入：[[4,10,15,24,26], [0,9,12,20], [5,18,22,30]]
+> 输出：[20,24]
+> 解释： 
+> 列表 1：[4, 10, 15, 24, 26]，24 在区间 [20,24] 中。
+> 列表 2：[0, 9, 12, 20]，20 在区间 [20,24] 中。
+> 列表 3：[5, 18, 22, 30]，22 在区间 [20,24] 中。
+>
+> ```
+>
+> **提示：**
+>
+> - 给定的列表可能包含重复元素，所以在这里升序表示 >= 。
+> - 1 <= `k` <= 3500
+> - -105 <= `元素的值` <= 105
+> - **对于使用Java的用户，请注意传入类型已修改为List<List<Integer>>。重置代码模板后可以看到这项改动。**
+
+#### 方法一：优先队列
+##### 思路：
+
+> 问题转换：k个列表中找最小区间，使每个列表都至少有个数在该区间。转化为：**从k个列表中各取一个数，使得k个数中的最大值和最小值的差值最小。**
+>
+> 由于k个列表都是升序排列的，因此在每个列表中维护一个指针，通过指针得到列表中的元素，指针右移之后的元素一定大于等于之前的元素**使用最小优先队列（最小堆实现）维护k个指针指向元素的最小值，同时维护堆中元素的最大值。**初始时k指针都指向下标0，最大值为所有下标0元素中的最大值，每次从堆中取出最小值，根据最大和最小值计算当前区间，若当前区间小于最小区间（初始化为元素的边界范围）则更新最小区间， 然后将对应列表的指针右移，并更新堆中元素、堆中最大值。
+>
+> 退出条件：某一个列表指针超出该列表索引，则说明该列表已遍历完，堆中不会再有该列表中的值，因此退出循环。
+
+##### 复杂度：
+
+> 时间复杂度：O(nk logk)，其中n是列表平均长度，k是列表数量，所有指针移动次数最多是nk次，更新优先队列时间复杂度logk。
+>
+> 空间复杂度：O(k)，其中k是列表数量，用于优先队列中维护k个元素。
+
+##### 代码：
+```java
+public int[] smallestRange(List<List<Integer>> nums) {
+        int rangeLeft = 0, rangeRight = Integer.MAX_VALUE;
+        int minRange = rangeRight - rangeLeft;
+        int max = Integer.MIN_VALUE;
+        int size = nums.size();
+        // 存放索引的指针
+        int next[] = new int[size];
+  		// 创建最小优先队列，是下面注释部分的简写
+        PriorityQueue<Integer> priorityQueue = new PriorityQueue<>(Comparator.comparingInt(o -> nums.get(o).get(next[o])));
+        /*PriorityQueue<Integer> priorityQueue = new PriorityQueue<>(new Comparator<Integer>() {
+            @Override
+            public int compare(Integer o1, Integer o2) {
+                return nums.get(o1).get(next[o1]) - nums.get(o2).get(next[o2]);
+            }
+        });*/
+        // 初始化最小优先队列中元素和其中最大值
+        for (int i = 0; i < size; i++) {
+            priorityQueue.offer(i);
+            max = Math.max(max, nums.get(i).get(0));
+        }
+        while (true) {
+            int minIndex = priorityQueue.poll();
+            int curRange = max - nums.get(minIndex).get(next[minIndex]);
+            // 当前范围小于最小范围，更新最小范围
+            if (curRange < minRange) {
+                minRange = curRange;
+                rangeLeft = nums.get(minIndex).get(next[minIndex]);
+                rangeRight = max;
+            }
+            // 指针右移
+            next[minIndex]++;
+            // 某列表遍历完就退出
+            if (next[minIndex] == nums.get(minIndex).size()) {
+                break;
+            }
+            priorityQueue.offer(minIndex);
+            max = Math.max(max, nums.get(minIndex).get(next[minIndex]));
+        }
+        return new int[]{rangeLeft, rangeRight};
 }
 ```
 

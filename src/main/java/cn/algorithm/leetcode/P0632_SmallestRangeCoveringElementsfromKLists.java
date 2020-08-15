@@ -1,8 +1,6 @@
 package cn.algorithm.leetcode;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.PriorityQueue;
+import java.util.*;
 
 /**
  * 632. 最小区间
@@ -26,7 +24,11 @@ import java.util.PriorityQueue;
  */
 public class P0632_SmallestRangeCoveringElementsfromKLists {
     public static void main(String[] args) {
-
+        List<List<Integer>> data = new LinkedList<>();
+        data.add(new LinkedList<>(Arrays.asList(4,10,15,24,26)));
+        data.add(new LinkedList<>(Arrays.asList(0,9,12,20)));
+        data.add(new LinkedList<>(Arrays.asList(5,18,22,30)));
+        System.out.println(Arrays.toString(smallestRange(data)));
     }
 
     /**
