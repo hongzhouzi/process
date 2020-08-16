@@ -33,6 +33,7 @@ public class P0410_SplitArrayLargestSum {
         int []nums = new int[]{1,2147483646};
         int m = 1;
         System.out.println(splitArray1(nums,m));
+        System.out.println(splitArray2(nums,m));
     }
 
     /**
@@ -133,4 +134,41 @@ public class P0410_SplitArrayLargestSum {
         return cnt <= m;
     }
 
+    static public int splitArray2(int[] nums, int m) {
+        // 初始化二分搜索边界
+        int left = 0, right = 0, len = nums.length;
+        for (int i = 0; i < len; i++) {
+            if(left < nums[i]){
+                left = nums[i];
+            }
+            right += nums[i];
+        }
+        // 开始二分搜索+验证
+        while (right > left + 1){
+            int mid = (right - left) / 2 + left;
+            // 最大值最小：检验找到的段数小于等于预期说明给定的参考值大了，需要减少参考值的范围
+            if (check2(nums, mid, m)) {
+                right = mid;
+            } else {
+                // left = mid + 1不然跳不出循环
+                left = mid ;
+            }
+        }
+
+        return left;
+    }
+
+    static boolean check2(int[] nums,int mid, int m){
+        // count需要初始化为1而不是0，因为统计的是分割后的个数，分割1次会分割成2份，分割2次回分割成3份
+        int count = 1, sum = 0;
+        for (int i = 0; i < nums.length; i++) {
+            if(sum + nums[i] > mid){
+                sum = nums[i];
+                count++;
+            }else {
+                sum += nums[i];
+            }
+        }
+        return count <= m;
+    }
 }
