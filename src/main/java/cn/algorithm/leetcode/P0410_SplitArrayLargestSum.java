@@ -28,8 +28,8 @@ import java.util.Arrays;
  */
 public class P0410_SplitArrayLargestSum {
     public static void main(String[] args) {
-//        int []nums = new int[]{7,2,5,10,8};
-//        int m = 2;
+        /*int []nums = new int[]{7,2,5,10,8};
+        int m = 2;*/
         int []nums = new int[]{1,2147483646};
         int m = 1;
         System.out.println(splitArray1(nums,m));
@@ -144,18 +144,31 @@ public class P0410_SplitArrayLargestSum {
             right += nums[i];
         }
         // 开始二分搜索+验证
-        while (right > left + 1){
+        /*while (right > left){
             int mid = (right - left) / 2 + left;
-            // 最大值最小：检验找到的段数小于等于预期说明给定的参考值大了，需要减少参考值的范围
+            // 最小化最大值：验证符合要求后，验证有没有更小的符合要求的值，则缩小大值范围，right = mid -1
             if (check2(nums, mid, m)) {
-                right = mid;
+                // 不能写成 mid - 1 防止当前大值是范围内的最小值，mid - 1 得到的值就小了一个数
+                right = mid ;
             } else {
-                // left = mid + 1不然跳不出循环
-                left = mid ;
+                // 说明mid是验证了不能通过的，则范围缩小到mid+1
+                left = mid + 1;
             }
         }
 
-        return left;
+        return left;*/
+        // 两个数相邻时就结束条件
+        while (right - left > 1){
+            int mid = (right - left) / 2 + left;
+            // 最小化最大值：验证符合要求后，验证有没有更小的符合要求的值，则缩小大值范围，right = mid -1
+            if (check2(nums, mid, m)) {
+                right = mid;
+            } else {
+                left = mid;
+            }
+        }
+        //right是验证通过了的，而left是验证未通过，两个碰面的就说明范围缩小到left和right，而right验证通过，left验证未通过，故返回right
+        return right;
     }
 
     static boolean check2(int[] nums,int mid, int m){

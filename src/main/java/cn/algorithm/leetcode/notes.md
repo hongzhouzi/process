@@ -668,7 +668,222 @@ public String addStrings(String num1, String num2) {
 
 
 
+
+
+
+
+## 树
+
+### 说明
+
+> 本专题
+
+### 高度
+
+### [110. 平衡二叉树](https://leetcode-cn.com/problems/balanced-binary-tree/)
+
+###### label：树高度
+
+##### 描述
+
+> 难度简单
+>
+> 给定一个二叉树，判断它是否是高度平衡的二叉树。
+>
+> 本题中，一棵高度平衡二叉树定义为：
+>
+> 一个二叉树*每个节点* 的左右两个子树的高度差的绝对值不超过1。
+
+#### 方法一
+
+##### 思路
+
+> 自顶向下，计算出树左右两边的最大高度，保证左右两边的高度差小于2，同时满足左右两边的子树也满足平衡。
+
+##### 复杂度分析
+
+> 时间复杂度：O(n^2)，n为树的节点数。由于是自顶向下计算
+>
+> 空间复杂度：O(n)，n为树的节点个数，递归调用过程每个节点都需要调用。
+
+##### 代码
+
+```java
+public boolean isBalanced(TreeNode root) {
+    if (root == null) {
+        return true;
+    }
+    return Math.abs(getHeight(root.left) - getHeight(root.right)) < 2
+        && isBalanced(root.left)
+        && isBalanced(root.right);
+}
+
+int getHeight(TreeNode root) {
+    if (root == null) {
+        return 0;
+    }
+    return Math.max(getHeight(root.left), getHeight(root.right)) + 1;
+}
+```
+
+
+#### 方法二
+
+##### 思路
+
+> 自底向上的思路，关键优化的地方在于计算左右子树高度上，计算高度后就判断是否平衡，每个节点都只遍历一次。而方法一中从顶向下计算时，对每个节点都会从顶向下，就多了重复的计算。
+
+##### 复杂度分析
+
+> 时间复杂度：O(n)，n为树的节点数。
+>
+> 空间复杂度：O(n)，n为树的节点个数，递归调用过程每个节点都需要调用。
+
+##### 代码
+
+```java
+public boolean isBalanced(TreeNode root) {
+    return helper(root) >= 0;
+}
+
+int helper(TreeNode root) {
+    if (root == null) {
+        return -1;
+    }
+    int leftHeight = helper(root.left);
+    int rightHeight = helper(root.right);
+    if (leftHeight == -1 || rightHeight == -1 
+        || Math.abs(leftHeight - rightHeight) > 1) {
+        return -1;
+    }
+    return Math.max(leftHeight, rightHeight) + 1;
+}
+```
+
+
+
+
+
+
+## 最大化最小值问题
+### 说明
+> 本专题主要说明**最大化最小值和最小化最大值问题**，这种直接去找不太好找，但可以确定的是**最终结果有确定的范围**，那么我们就对这个范围内的值进行**验证**即可，验证过程使用二分查找加速。
+>
+> 最大化最小值：二分搜索验证某范围的中间值符合要求后，需最大化最小值，则**验证更大的值**是否符合要求。**缩小小值**范围。
+>
+> 最小化最大值：二分搜索验证某范围的中间值符合要求后，需最小化最大值，则**验证更小的值**是否符合要求。**缩小大值**范围。
+
+### [410. 分割数组的最大值](https://leetcode-cn.com/problems/split-array-largest-sum/)
+
+###### label：最大化最小值
+#### 描述：
+
+> 难度困难
+>
+> 给定一个非负整数数组和一个整数 *m*，你需要将这个数组分成 *m* 个非空的连续子数组。设计一个算法使得这 *m* 个子数组各自和的最大值最小。
+>
+> **注意:**
+> 数组长度 *n* 满足以下条件:
+>
+> - 1 ≤ *n* ≤ 1000
+> - 1 ≤ *m* ≤ min(50, *n*)
+>
+> **示例:**
+>
+> ```
+> 输入:
+> nums = [7,2,5,10,8]
+> m = 2
+> 输出:
+> 18
+> 解释:
+> 一共有四种方法将nums分割为2个子数组。
+> 其中最好的方式是将其分为[7,2,5] 和 [10,8]，
+> 因为此时这两个子数组各自的和的最大值为18，在所有情况中最小。
+> ```
+
+#### 方法一：二分查找
+##### 思路：
+
+> XX。
+
+##### 复杂度：
+
+> 时间复杂度：O()
+>
+> 空间复杂度：O()
+
+##### 代码：
+```java
+public int splitArray(int[] nums, int m) {
+    // 1.初始化二分搜索边界
+    int left = 0, right = 0, len = nums.length;
+    for (int i = 0; i < len; i++) {
+        if(left < nums[i]){
+            left = nums[i];
+        }
+        right += nums[i];
+    }
+    // 2.开始二分搜索+验证；两个数相邻时就结束条件
+    while (right - left > 1){
+        int mid = (right - left) / 2 + left;
+        // 3.最小化最大值：验证符合要求后，验证有没有更小的符合要求的值，则缩小大值范围
+        if (check(nums, mid, m)) {
+            right = mid;
+        } else {
+            left = mid;
+        }
+    }
+    //right是验证通过了的，而left是验证未通过，两个碰面的就说明范围缩小到left和right，而right验证通过，left验证未通过，故返回right
+    return right;
+}
+// 4.验证mid值是否符合要求
+boolean check(int[] nums,int mid, int m){
+    // count需要初始化为1而不是0，因为统计的是分割后的个数，分割1次会分割成2份，分割2次回分割成3份
+    int count = 1, sum = 0;
+    for (int i = 0; i < nums.length; i++) {
+        if(sum + nums[i] > mid){
+            sum = nums[i];
+            count++;
+        }else {
+            sum += nums[i];
+        }
+    }
+    return count <= m;
+}
+```
+
+
+
+## 岛屿问题
 ###  [xx.模板](https://leetcode-cn.com//)
+
+###### label：矩阵遍历
+#### 描述：
+
+> 难度简单
+>
+> xxx
+
+#### 方法一：XX
+##### 思路：
+
+> XX。
+
+##### 复杂度：
+
+> 时间复杂度：O(n)
+>
+> 空间复杂度：O(n)，其中n为栈开销。
+
+##### 代码：
+```java
+code
+```
+
+
+
+##  [xx.模板](https://leetcode-cn.com//)
 
 ###### label：xx、yy
 #### 描述：

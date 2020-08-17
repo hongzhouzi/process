@@ -4,11 +4,11 @@ import java.util.Arrays;
 
 public class M3 {
     public static void main(String[] args) {
-       /* int position[] = {1,2,3,4,7};
-        int m = 3;*/
+        int position[] = {1,2,3,4,7};
+        int m = 3;
 
-        int position[] = {5, 4, 3, 2, 1, 1000000000};
-        int m = 2;
+        /*int position[] = {5, 4, 3, 2, 1, 1000000000};
+        int m = 2;*/
 
         System.out.println(new M3().maxDistance1(position, m));
         System.out.println(new M3().maxDistance(position, m));
@@ -17,8 +17,9 @@ public class M3 {
 
     public int maxDistance(int[] position, int m) {
         Arrays.sort(position);
-        int left = 0, right = position[position.length - 1];
-        while (right > left + 1 ) {
+        int left = position[0], right = position[position.length - 1];
+        // left == right 时二分区间已经缩小到一个数了，可确定就为该数，可返回了
+        while (right - left > 1 ) {
             int mid = (right - left) / 2 + left;
             // 最小值最大：检验的间隔数大于等于预期，说明给定的值小了，需要加大，则左区间加大到中间值
             if(check(position,mid,m)){
@@ -27,6 +28,7 @@ public class M3 {
                 right = mid;
             }
         }
+        // 返回left,因为left是验证过的，right是没有通过验证的，两个碰面的就说明范围缩小到left和right，而left验证通过，right验证未通过，故返回left
         return left;
     }
 
