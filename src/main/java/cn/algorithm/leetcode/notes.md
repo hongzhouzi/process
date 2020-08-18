@@ -678,8 +678,6 @@ public String addStrings(String num1, String num2) {
 
 > 本专题
 
-### 高度
-
 ### [110. 平衡二叉树](https://leetcode-cn.com/problems/balanced-binary-tree/)
 
 ###### label：树高度
@@ -762,6 +760,123 @@ int helper(TreeNode root) {
 
 
 
+### [109. 有序链表转换二叉搜索树](https://leetcode-cn.com/problems/convert-sorted-list-to-binary-search-tree/)
+
+###### label：二叉搜索树、双指针
+
+##### 描述
+
+> 难度中等
+>
+> 给定一个单链表，其中的元素按升序排序，将其转换为高度平衡的二叉搜索树。
+>
+> 本题中，一个高度平衡二叉树是指一个二叉树*每个节点* 的左右两个子树的高度差的绝对值不超过 1。
+>
+> **示例:**
+>
+> ```
+> 给定的有序链表： [-10, -3, 0, 5, 9],
+> 
+> 一个可能的答案是：[0, -3, 9, -10, null, 5], 它可以表示下面这个高度平衡二叉搜索树：
+> 
+>       0
+>      / \
+>    -3   9
+>    /   /
+>  -10  5
+> ```
+
+
+#### 方法一
+
+##### 思路
+
+> 由双指针找到链表中间的数，然后把链表左边的给左子树，链表右边的给右子树，递归构造树。
+
+##### 复杂度分析
+
+> 时间复杂度：O(n logn)，其中 n 是链表的长度。设长度为 n 的链表构造二叉搜索树的时间为T(n)，递推式为 T(n)=2⋅T(n/2)+O(n)，根据主定理，T(n)=O(n logn)。
+>
+> 空间复杂度：O(log n)，这里只计算除了返回答案之外的空间。平衡二叉树的高度为 O(logn)，即为递归过程中栈的最大深度，也就是需要的空间。
+
+##### 代码
+
+```java
+public TreeNode sortedListToBST(ListNode head) {
+    if(head == null){
+        return null;
+    }
+    if(head.next == null){
+        return new TreeNode(head.val);
+    }
+    // 双指针找到链表中间节点（慢指针走一步快指针走两步，快指针到末尾时结束循环）
+    ListNode slow = head, quick = head, pre = null;
+    while (quick != null && quick.next != null){
+        // 这句要放在slow移动前面，记录上次的slow位置，不包含此次的，因为截取的是此次之前的slow
+        pre = slow;
+        slow = slow.next;
+        quick = quick.next.next;
+    }
+    // 把head从中间截断，操作head指向的地址
+    pre.next = null;
+
+    // 此时head为原始的前半段，slow为中间部分
+    TreeNode root = new TreeNode(slow.val);
+    root.left = sortedListToBST(head);
+    root.right = sortedListToBST(slow.next);
+    return root;
+}
+```
+#### 方法二
+
+##### 思路
+
+> 方法一的时间复杂度的瓶颈在于寻找中位数节点。由于**构造出的二叉搜索树的中序遍历结果就是链表本身**，因此我们可以将分治和中序遍历结合起来，减少时间复杂度。
+>
+> 在分治遍历时先不着急找出链表的中位数节点，用个占位节点，中序遍历到该节点时再填充对应的值。
+
+##### 复杂度分析
+
+> 时间复杂度：O(n)，n为树的节点数。由于是自顶向下计算。
+>
+> 空间复杂度：O(log n)，n为链表长度，主要为递归过程开销。
+
+##### 代码
+
+```java
+ListNode globalHead;
+
+public TreeNode sortedListToBST(ListNode head) {
+    globalHead = head;
+    int length = getLength(head);
+    return buildTree(0, length - 1);
+}
+
+public int getLength(ListNode head) {
+    int ret = 0;
+    while (head != null) {
+        ++ret;
+        head = head.next;
+    }
+    return ret;
+}
+// 中序遍历的方式构建树
+public TreeNode buildTree(int left, int right) {
+    if (left > right) {
+        return null;
+    }
+    int mid = (left + right + 1) / 2;
+    TreeNode root = new TreeNode();
+    // 先左子树
+    root.left = buildTree(left, mid - 1);
+    // 再值
+    root.val = globalHead.val;
+    globalHead = globalHead.next;
+    // 再右子树
+    root.right = buildTree(mid + 1, right);
+    return root;
+}
+```
 
 
 
@@ -772,6 +887,70 @@ int helper(TreeNode root) {
 > 最大化最小值：二分搜索验证某范围的中间值符合要求后，需最大化最小值，则**验证更大的值**是否符合要求。**缩小小值**范围。
 >
 > 最小化最大值：二分搜索验证某范围的中间值符合要求后，需最小化最大值，则**验证更小的值**是否符合要求。**缩小大值**范围。
+
+#### 最大化最小值模板
+
+```java
+public int func(int[] nums, int m) {
+    // 1.初始化二分搜索边界（todo 不同题目初始化的边界不同）
+    int left = 0, right = 1000000007;
+    // 2.开始二分搜索+验证；两个数相邻时就结束条件
+    while (right - left > 1){
+        int mid = (right - left) / 2 + left;
+        // 4.缩小验证范围，最小化最大值：验证符合要求后，验证有没有更小的符合要求的值，则缩小大值范围
+        if (check(nums, mid, m)) {
+            right = mid;
+        } else {
+            left = mid;
+        }
+    }
+    //right是验证通过的，而left是验证未通过，两个碰面的就说明范围缩小到left和right，而right验证通过，left验证未通过，故返回right
+    return right;
+}
+// 3.验证mid值是否符合要求（不同题目验证逻辑不同）
+boolean check(int[] nums,int mid, int m){
+    int count = 0;
+    for (int i = 0; i < nums.length; i++) {
+        // todo
+    }
+    return count <= m;
+}
+```
+
+#### 最小化最大值模板
+
+```java
+public int func(int[] nums, int m) {
+    // 1.初始化二分搜索边界（todo 不同题目初始化的边界不同）
+    int left = 0, right = 1000000007;
+    // 2.开始二分搜索+验证；两个数相邻时就结束条件
+    while (right - left > 1){
+        int mid = (right - left) / 2 + left;
+        // 4.缩小验证范围，最大化最小值：验证符合要求后，验证有没有更大的符合要求的值，则缩小小值范围
+        // ！！！注意与最大化最小值区别
+        if(check(position,mid,m)){
+            left = mid;
+        } else {
+            right = mid;
+        }
+    }
+    // left是验证过的，right是未通过验证的，两个碰面的就说明范围缩小到left和right，而left验证通过，right验证未通过，故返回left
+    // ！！！注意与最大化最小值区别
+    return left;
+}
+// 3.验证mid值是否符合要求（不同题目验证逻辑不同）
+boolean check(int[] nums,int mid, int m){
+    int count = 0;
+    for (int i = 0; i < nums.length; i++) {
+        // todo
+    }
+    return count <= m;
+}
+```
+
+
+
+
 
 ### [410. 分割数组的最大值](https://leetcode-cn.com/problems/split-array-largest-sum/)
 
@@ -805,13 +984,18 @@ int helper(TreeNode root) {
 #### 方法一：二分查找
 ##### 思路：
 
-> XX。
+> 求解最大化最小值问题整体步骤分为4步，可直接套用模板，主要不同的地方是验证二分查找的值是否符合要求时的逻辑不同。
+>
+> 1. 确定二分查找的范围
+> 2. 开始二分查找
+> 3. 验证二分查找的值是否符合要求
+> 4. 缩小验证范围，最后确定返回值
 
 ##### 复杂度：
 
-> 时间复杂度：O()
+> 时间复杂度：O(n * log nums )，n为数组长度，验证过程开销；nums为二分搜索的范围长度。
 >
-> 空间复杂度：O()
+> 空间复杂度：O(1)
 
 ##### 代码：
 ```java
@@ -827,17 +1011,17 @@ public int splitArray(int[] nums, int m) {
     // 2.开始二分搜索+验证；两个数相邻时就结束条件
     while (right - left > 1){
         int mid = (right - left) / 2 + left;
-        // 3.最小化最大值：验证符合要求后，验证有没有更小的符合要求的值，则缩小大值范围
+        // 4.缩小验证范围，最小化最大值：验证符合要求后，验证有没有更小的符合要求的值，则缩小大值范围
         if (check(nums, mid, m)) {
             right = mid;
         } else {
             left = mid;
         }
     }
-    //right是验证通过了的，而left是验证未通过，两个碰面的就说明范围缩小到left和right，而right验证通过，left验证未通过，故返回right
+    //right是验证通过的，而left是验证未通过，两个碰面的就说明范围缩小到left和right，而right验证通过，left验证未通过，故返回right
     return right;
 }
-// 4.验证mid值是否符合要求
+// 3.验证mid值是否符合要求，不同题目差异主要也就在这儿
 boolean check(int[] nums,int mid, int m){
     // count需要初始化为1而不是0，因为统计的是分割后的个数，分割1次会分割成2份，分割2次回分割成3份
     int count = 1, sum = 0;
@@ -852,6 +1036,107 @@ boolean check(int[] nums,int mid, int m){
     return count <= m;
 }
 ```
+
+
+
+### [1552. 两球之间的磁力](https://leetcode-cn.com/problems/magnetic-force-between-two-balls/)
+
+###### label：最小化最大值
+#### 描述：
+
+> 难度中等
+>
+> 在代号为 C-137 的地球上，Rick 发现如果他将两个球放在他新发明的篮子里，它们之间会形成特殊形式的磁力。Rick 有 `n` 个空的篮子，第 `i` 个篮子的位置在 `position[i]` ，Morty 想把 `m` 个球放到这些篮子里，使得任意两球间 **最小磁力** 最大。
+>
+> 已知两个球如果分别位于 `x` 和 `y` ，那么它们之间的磁力为 `|x - y|` 。
+>
+> 给你一个整数数组 `position` 和一个整数 `m` ，请你返回最大化的最小磁力。
+>
+> **示例 1：**
+>
+> ![img](https://assets.leetcode-cn.com/aliyun-lc-upload/uploads/2020/08/16/q3v1.jpg)
+>
+> ```
+> 输入：position = [1,2,3,4,7], m = 3
+> 输出：3
+> 解释：将 3 个球分别放入位于 1，4 和 7 的三个篮子，两球间的磁力分别为 [3, 3, 6]。最小磁力为 3 。我们没办法让最小磁力大于 3 。
+> ```
+>
+> **示例 2：**
+>
+> ```
+> 输入：position = [5,4,3,2,1,1000000000], m = 2
+> 输出：999999999
+> 解释：我们使用位于 1 和 1000000000 的篮子时最小磁力最大。
+> ```
+>
+> **提示：**
+>
+> - `n == position.length`
+> - `2 <= n <= 10^5`
+> - `1 <= position[i] <= 10^9`
+> - 所有 `position` 中的整数 **互不相同** 。
+> - `2 <= m <= position.length`
+
+
+#### 方法一：二分查找
+##### 思路：
+
+> 求解最大化最小值问题整体步骤分为4步，可直接套用模板，主要不同的地方是验证二分查找的值是否符合要求时的逻辑不同。
+>
+> 1. 确定二分查找的范围
+> 2. 开始二分查找
+> 3. 验证二分查找的值是否符合要求
+> 4. 缩小验证范围，最后确定返回值
+
+##### 复杂度：
+
+> 时间复杂度：O(n * log nums )，n为数组长度，验证过程开销；nums为二分搜索的范围长度。
+>
+> 空间复杂度：O(1)
+
+##### 代码：
+```java
+public int maxDistance(int[] position, int m) {
+    Arrays.sort(position);
+    // 1.确定二分查找范围
+    int left = 0, right = position[position.length - 1];
+    // 2.开始二分查找
+    while (right - left > 1 ) {
+        int mid = (right - left) / 2 + left;
+        // 4.缩小验证范围，最大化最小值：验证符合要求后，验证有没有更大的符合要求的值，则缩小小值范围
+        if(check(position,mid,m)){
+            left = mid;
+        } else {
+            right = mid;
+        }
+    }
+    // left是验证过的，right是未通过验证的，两个碰面的就说明范围缩小到left和right，而left验证通过，right验证未通过，故返回left
+    return left;
+}
+// 3.验证二分查找的值是否符合要求，不同题目差异主要也就在这儿
+boolean check(int[] position, int mid, int m) {
+    // 因为1 <= position[i] <= 10^9，且根据题意肯定要算入第一个数
+    // 所以起点从0开始，在验证时把第一个元素加上，后面依次加上间隔数
+    int l = 0, count = 0;
+    for (int i = 0; i < position.length; i++) {
+        // 当前数是否大于等于偏移间隔数，这儿需要取到小于号
+        if (l <= position[i]) {
+            l = mid + position[i];
+            count++;
+        }
+    }
+    return count >= m;
+}
+```
+
+
+
+
+
+时间复杂度：O(n logn)，其中 n 是链表的长度。设长度为 n 的链表构造二叉搜索树的时间为T(n)，递推式为 T(n)=2⋅T(n/2)+O(n)，根据主定理，T(n)=O(n logn)。
+
+空间复杂度：O(log n)，这里只计算除了返回答案之外的空间。平衡二叉树的高度为 O(logn)，即为递归过程中栈的最大深度，也就是需要的空间。
 
 
 
