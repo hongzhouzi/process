@@ -86,7 +86,7 @@ public class P0110_BalancedBinaryTree {
 
     int helper(TreeNode root) {
         if (root == null) {
-            return -1;
+            return 0;
         }
         int leftHeight = helper(root.left);
         int rightHeight = helper(root.right);

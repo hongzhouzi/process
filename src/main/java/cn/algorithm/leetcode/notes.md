@@ -674,9 +674,60 @@ public String addStrings(String num1, String num2) {
 
 ## 树
 
-### 说明
+#### 说明
 
-> 本专题
+> 本专题主要是对树的问题归纳总结
+
+#### 名词解释
+
+##### 高度
+
+> **高度：**对于任意节点n,**n 的高度为从 n 到一片树叶的最长路径长**，所有**树叶的高度为0**。
+>
+> **树的高度：** 树所有节点的最大深度。
+
+##### 深度
+
+> **树的深度：** 树所有节点的最大深度。
+
+##### 遍历
+
+> **广度优先遍历：**又称层次遍历，遍历时从根节点一层一层的往下层遍历，遍历过程使用**队列**结构存储待遍历节点（从队列中取遍历的节点，并将其子节点放入队列中，队列为空时即遍历完了）。
+>
+> **深度优先遍历：**先序遍历、中序遍历、后序遍历。其中先中后序指的是**根节点的遍历顺序**，先序即：先根再左最后右。深度优先遍历过程需要**回溯**，因此使用**递归**实现dfs最常见，也可以使用**栈**实现。
+
+##### 树的种类
+
+> **满二叉树：** 除叶子节点外，所有节点均含有 2 个子树的树。
+>
+> **完全二叉树：** 有2^k - 1个节点的满二叉树。
+>
+> **哈夫曼树（最优二叉树）：** 带权路径最短的二叉树。
+>
+> **平衡二叉树(AVL)：** 它是一 棵空树或它的左右两个子树的高度差的绝对值不超过1，并且左右两个子树都是一棵平衡二叉树，同时，平衡二叉树必定是二叉搜索树。
+>
+> **二叉查找树（二叉搜索树、BST）**
+>
+> 若任意节点的左子树不空，则左子树上所有节点的值均小于它的根节点的值；
+> 若任意节点的右子树不空，则右子树上所有节点的值均大于它的根节点的值；
+> 任意节点的左、右子树也分别为二叉查找树；
+> 没有键值相等的节点。
+>
+> **红黑树：**
+>
+> 红黑树是一颗特殊的二叉查找树，除了二叉查找树的要求外，它还具有以下特性：
+>
+>  - 每个节点或者是黑色，或者是红色。
+>
+>  - 根节点是黑色。
+>
+>  - 每个叶子节点（NIL）是黑色。 [注意：这里叶子节点，是指为空(NIL或NULL)的叶子节点！]
+>
+>  - 如果一个节点是红色的，则它的子节点必须是黑色的。
+>
+>  - 从一个节点到该节点的子孙节点的所有路径上包含相同数目的黑节点。
+>
+>    
 
 ### [110. 平衡二叉树](https://leetcode-cn.com/problems/balanced-binary-tree/)
 
@@ -740,23 +791,80 @@ int getHeight(TreeNode root) {
 ##### 代码
 
 ```java
-public boolean isBalanced(TreeNode root) {
-    return helper(root) >= 0;
+public boolean isBalanced1(TreeNode root) {
+    return helper(root) != -1;
 }
-
-int helper(TreeNode root) {
-    if (root == null) {
-        return -1;
+int helper(TreeNode root){
+    if(Objects.isNull(root)){
+        return 0;
     }
-    int leftHeight = helper(root.left);
-    int rightHeight = helper(root.right);
-    if (leftHeight == -1 || rightHeight == -1 
-        || Math.abs(leftHeight - rightHeight) > 1) {
-        return -1;
-    }
-    return Math.max(leftHeight, rightHeight) + 1;
+    int left = helper(root.left);
+    int right = helper(root.right);
+    return Math.abs(left - right) > 1 || left == -1 || right == -1
+        ? -1
+        : Math.max(left,right) + 1;
 }
 ```
+
+
+
+### [111. 二叉树的最小深度](https://leetcode-cn.com/problems/minimum-depth-of-binary-tree/)
+
+###### label：树深度
+
+##### 描述
+
+> 难度简单
+>
+> 给定一个二叉树，找出其最小深度。
+>
+> 最小深度是从根节点到最近叶子节点的最短路径上的节点数量。
+>
+> **说明:** 叶子节点是指没有子节点的节点。
+>
+> **示例:**
+>
+> 给定二叉树 `[3,9,20,null,null,15,7]`,
+>
+> ```
+>     3
+>    / \
+>   9  20
+>     /  \
+>    15   7
+> ```
+>
+> 返回它的最小深度  2.
+
+
+#### 方法一
+
+##### 思路
+
+> 递归计算树的深度，需要注意的是当左子树或者右子树为空时最小深度是另一个不为空子树的最小深度。
+
+##### 复杂度分析
+
+> 时间复杂度：O(n)，n 是树的节点。
+>
+> 空间复杂度：O(h)，h是树的最高度。
+
+##### 代码
+
+```java
+public int minDepth(TreeNode root) {
+    if (Objects.isNull(root)) {
+        return 0;
+    }
+    int left = minDepth(root.left);
+    int right= minDepth(root.right);
+    // 当根节点的左子树或右子树为空时（left或right为0），最小深度是另一边的最小深度
+     return Objects.isNull(root.left) || Objects.isNull(root.right) 
+            ? Math.max(left, right) + 1  
+            : Math.min(left, right) + 1;
+}
+```
+
 
 
 
