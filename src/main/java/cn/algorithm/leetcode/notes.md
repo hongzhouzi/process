@@ -360,6 +360,132 @@ class Solution {
 
 
 
+### [491. 递增子序列](https://leetcode-cn.com/problems/increasing-subsequences/)
+
+###### label：子序列、dfs、bfs
+
+#### 描述：
+
+> 难度中等
+>
+> 给定一个整型数组, 你的任务是找到所有该数组的递增子序列，递增子序列的长度至少是2。
+>
+> **示例:**
+>
+> ```
+> 输入: [4, 6, 7, 7]
+> 输出: [[4, 6], [4, 7], [4, 6, 7], [4, 6, 7, 7], [6, 7], [6, 7, 7], [7,7], [4,7,7]]
+> ```
+>
+> **说明:**
+>
+> 1. 给定数组的长度不会超过15。
+> 2. 数组中的整数范围是 [-100,100]。
+> 3. 给定数组中可能包含重复数字，相等的数字应该被视为递增的一种情况。
+
+
+#### 方法一：dfs递归
+
+##### 思路：
+
+> 对序列从前往后深度优先搜索，搜索过程对数字进行去重，若搜索的当前数满足递增就加入结果集并继续向后搜索。
+
+##### 复杂度：
+
+> 时间复杂度：O()
+>
+> 空间复杂度：O()
+
+##### 代码：
+
+```java
+List<List<Integer>> ret = new LinkedList<>();
+public List<List<Integer>> findSubsequences1(int[] nums) {
+    dfs(nums, -1, new ArrayList<>());
+    return ret;
+}
+
+void dfs(int[] nums, int idx, List<Integer> cur) {
+    // 当前递增长度序列长度大于0，就加入结果集
+    if (cur.size() > 1) {
+        ret.add(new ArrayList<>(cur));
+    }
+    // 在 [idx+1,  len -1] 范围内搜索下一个值，并借助set去重
+    Set<Integer> set = new HashSet<>();
+    for (int i = idx + 1; i < nums.length; i++) {
+        if (set.contains(nums[i])) {
+            continue;
+        }
+        set.add(nums[i]);
+        // 出现递增序列则添加到结果集，并向下继续搜索
+        if (idx == -1 || nums[i] >= nums[idx]) {
+            cur.add(nums[i]);
+            dfs(nums, i, cur);
+            cur.remove(cur.size() - 1);
+        }
+    }
+}
+```
+
+#### 方法二：bfs
+
+##### 思路：
+
+> 先组合两位长度的序列，组合时需要将序列的下一个索引放入队列中并将组合的数放入集合中保证添加的数不能重复，另外还需全局记录结果集中遍历到的位置，从队列中取出数据继续往后遍历看是否还有递增的数，有则将数据放入队列和结果集中并继续组合。
+
+##### 复杂度：
+
+> 时间复杂度：O()
+>
+> 空间复杂度：O()
+
+##### 代码：
+
+```java
+public List<List<Integer>> findSubsequences(int[] nums) {
+    List<List<Integer>> ret = new LinkedList<>();
+    int len = nums.length, lastIndex = 0;
+    // 记录顺序列表List<Integer>中最后索引
+    Deque<Integer> queue = new LinkedList<>();
+    Set<List<Integer>> set = new HashSet<>();
+    // 组合两位数
+    for (int i = 0; i < len; i++) {
+        for (int j = i + 1; j < len; j++) {
+            List<Integer> cur = new LinkedList<>();
+            cur.add(nums[i]);
+            cur.add(nums[j]);
+            // 取的两位数相邻 || 之前有的组合不取
+            if (nums[i] <= nums[j] && !set.contains(cur)) {
+                set.add(cur);
+                ret.add(cur);
+                queue.offer(j + 1);
+            }
+        }
+    }
+    // 在前面组合数的基础上往后一位一位的尝试
+    while (!queue.isEmpty()) {
+        int pollIndex = queue.poll();
+        int i = pollIndex;
+        while (i < len) {
+            List<Integer> cur = new LinkedList<>(ret.get(lastIndex));
+            cur.add(nums[i]);
+            if (nums[pollIndex - 1] <= nums[i] && !set.contains(cur)) {
+                set.add(cur);
+                ret.add(cur);
+                queue.offer(i + 1);
+            }
+            i++;
+        }
+        lastIndex++;
+    }
+    return ret;
+}
+```
+
+
+
+
+
 ## 字符串
 
 ### [415. 字符串相加](https://leetcode-cn.com/problems/add-strings/)
@@ -508,6 +634,169 @@ public boolean kmp(String query, String pattern) {
     }
     return false;
 }
+```
+
+
+
+### [17. 电话号码的字母组合](https://leetcode-cn.com/problems/letter-combinations-of-a-phone-number/)
+
+
+
+###### label：字符串、队列
+#### 描述：
+
+> 难度中等
+>
+> 给定一个仅包含数字 `2-9` 的字符串，返回所有它能表示的字母组合。
+>
+> 给出数字到字母的映射如下（与电话按键相同）。注意 1 不对应任何字母。
+>
+> ![img](https://assets.leetcode-cn.com/aliyun-lc-upload/original_images/17_telephone_keypad.png)
+>
+> **示例:**
+>
+> ```
+> 输入："23"
+> 输出：["ad", "ae", "af", "bd", "be", "bf", "cd", "ce", "cf"].
+> ```
+
+#### 方法一：递归
+##### 思路：
+
+> 将字符串放入结果集中，往下递归遍历时将结果集的数据取出来拼接后再放入结果集，直到结束。
+
+##### 复杂度：
+
+> 时间复杂度：O()
+>
+> 空间复杂度：O()
+
+##### 代码：
+```java
+Map<Character, String> dictMap = new HashMap<Character, String>() {{
+    put('2', "abc");
+    put('3', "def");
+    put('4', "ghi");
+    put('5', "jkl");
+    put('6', "mno");
+    put('7', "pqrs");
+    put('8', "tuv");
+    put('9', "wxyz");
+}};
+public List<String> letterCombinations(String digits) {
+    if (digits.length() < 1) {
+        return new ArrayList<>();
+    }
+    List<String> ret = new LinkedList<>();
+    // 把第一组数据加入结果集
+    String dict = dictMap.get(digits.charAt(0));
+    for (int i = 0; i < dict.length(); i++) {
+        ret.add(dict.charAt(i) + "");
+    }
+    if (digits.length() == 1) {
+        return ret;
+    }
+    // 递归遍历
+    return recursion(digits, 1, ret);
+}
+
+List<String> recursion(String digits, int idx, List<String> res) {
+    if (digits.length() == idx) {
+        return res;
+    }
+    String dict = dictMap.get(digits.charAt(idx));
+    List<String> ret = new LinkedList<>();
+    // 从结果集中取出组合
+    for (int i = 0; i < dict.length(); i++) {
+        for (String s : res) {
+            ret.add(s + dict.charAt(i));
+        }
+    }
+    return recursion(digits, idx + 1, ret);
+}
+```
+
+#### 方法二：递归优化
+
+##### 思路：
+
+> 在方法一的基础上对字符串相关处理优化，使用String对字符串进行拼接操作很耗内存，这儿用StringBuilder优化，并且将
+
+##### 复杂度：
+
+> 时间复杂度：O()
+>
+> 空间复杂度：O()
+
+##### 代码：
+
+```java
+Map<Character, String> dictMap = new HashMap<Character, String>() {{
+    put('2', "abc");
+    put('3', "def");
+    put('4', "ghi");
+    put('5', "jkl");
+    put('6', "mno");
+    put('7', "pqrs");
+    put('8', "tuv");
+    put('9', "wxyz");
+}};
+public List<String> letterCombinations(String digits) {
+    List<String> res = new ArrayList<>();
+    if (digits == null || digits.length() == 0) {
+        return res;
+    }
+    dfs(new StringBuilder(), digits, 0, res);
+    return res;
+}
+// 使用StringBuilder优化，直到递归出口时才转为String放入结果集
+void dfs(StringBuilder sb, String digits, int n, List<String> res) {
+    if (n == digits.length()) {
+        res.add(sb.toString());
+        return;
+    }
+    String s = dictMap.get(digits.charAt(n));
+    // 递归过程
+    for (int i = 0; i < s.length(); i++) {
+        sb.append(s.charAt(i));
+        dfs(sb, digits, n + 1, res);
+        sb.deleteCharAt(sb.length() - 1);
+    }
+}
+```
+
+#### 方法三：使用队列
+
+##### 思路：
+
+> 将待拼接的字符串放在队列中，每次遍历到下个数字时都从队列中取出上次放入的字符串，然后将字符串拼接上放入队列直到遍历结束。
+
+##### 复杂度：
+
+> 时间复杂度：O()
+>
+> 空间复杂度：O()
+
+##### 代码：
+
+```java
+ public List<String> letterCombinations(String digits) {
+     LinkedList<String> ret = new LinkedList<>();
+     if(digits.length() == 0){
+         return ret;
+     }
+     ret.add("");
+     for (int i = 0; i < digits.length(); i++) {
+         String dict = dictMap.get(digits.charAt(i));
+         while (!ret.isEmpty() && ret.peek().length() == i) {
+             String poll = ret.poll();
+             for (int j = 0; j < dict.length(); j++) {
+                 ret.offer(poll + dict.charAt(j));
+             }
+         }
+     }
+     return ret;
+ }
 ```
 
 
@@ -1249,7 +1538,7 @@ class Solution {
             return;
         }
         int row = board.length, col = board[0].length;
-        // 第一次遍历（dfs），将边界的O替换成临时符号
+        recursion
         for (int i = 0; i < row; i++) {
             for (int j = 0; j < col; j++) {
                 boolean isEdge = i == 0 || j == 0 || i == row - 1 || j == col - 1;
@@ -1309,7 +1598,7 @@ class Solution {
             return;
         }
         int row = board.length, col = board[0].length;
-        // 第一次遍历（dfs），将边界的O替换成临时符号
+        recursion
         for (int i = 0; i < row; i++) {
             for (int j = 0; j < col; j++) {
                 boolean isEdge = i == 0 || j == 0 || i == row - 1 || j == col - 1;
