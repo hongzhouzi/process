@@ -482,7 +482,101 @@ public List<List<Integer>> findSubsequences(int[] nums) {
 }
 ```
 
+## 一笔画问题
 
+#### 说明
+
+> 给定一个 n 个点 m 条边的图，要求从指定的顶点出发，经过所有的边恰好一次（可以理解为给定起点的「一笔画 」问题），使得路径的字典序最小。
+>
+> 这种「一笔画」问题与欧拉图或者半欧拉图有着紧密的联系，下面给出定义：
+>
+> - 通过图中所有边恰好一次且行遍所有顶点的通路称为欧拉通路。
+> - 通过图中所有边恰好一次且行遍所有顶点的回路称为欧拉回路。
+> - 具有欧拉回路的无向图称为欧拉图。
+> - 具有欧拉通路但不具有欧拉回路的无向图称为半欧拉图。
+
+### [332. 重新安排行程](https://leetcode-cn.com/problems/reconstruct-itinerary/)
+
+###### label：图、一笔画、dfs
+
+
+#### 描述：
+
+> 难度中等
+>
+> 给定一个机票的字符串二维数组 `[from, to]`，子数组中的两个成员分别表示飞机出发和降落的机场地点，对该行程进行重新规划排序。所有这些机票都属于一个从 JFK（肯尼迪国际机场）出发的先生，所以该行程必须从 JFK 开始。
+>
+> **说明:**
+>
+> 1. 如果存在多种有效的行程，你可以按字符自然排序返回最小的行程组合。例如，行程 ["JFK", "LGA"] 与 ["JFK", "LGB"] 相比就更小，排序更靠前
+>
+> 2. 所有的机场都用三个大写字母表示（机场代码）。
+>
+> 3. 假定所有机票至少存在一种合理的行程。
+>
+>    **示例 1:**
+>
+>    ```
+>    输入: [["MUC", "LHR"], ["JFK", "MUC"], ["SFO", "SJC"], ["LHR", "SFO"]]
+>    输出: ["JFK", "MUC", "LHR", "SFO", "SJC"]
+>    ```
+>
+>    **示例 2:**
+>
+>    ```
+>    输入: [["JFK","SFO"],["JFK","ATL"],["SFO","ATL"],["ATL","JFK"],["ATL","SFO"]]
+>    输出: ["JFK","ATL","JFK","SFO","ATL","SFO"]
+>    解释: 另一种有效的行程是 ["JFK","SFO","ATL","JFK","ATL","SFO"]。但是它自然排序更大更靠后。
+>    ```
+
+#### 方法一：
+
+##### 思路：
+
+> 先将数据集添加到map中，因为一个键可能存储多个值，所以将值存在列表中，但题目中还要求了顺序，所以存储时使用优先队列的数据结构存储，在存放时就对数据集排好序。接下来就使用深度优先搜索找下个节点，当map中找不到下个节点时就说明到递归出口了，此次就将节点的值加入结果集中，注意需要使用头插法添加，递归时从下往上添加先添加的要在最后面。
+
+##### 复杂度：
+
+> 时间复杂度：O(m log m)，m为边的数量，对于每一条边需要log m的时间去删除它，所以最终序列长度为m+1，与n无关。
+>
+> 空间复杂度：O(m)，m为边的数量，存储每一条边。
+
+##### 代码：
+
+```java
+LinkedList<String>                 ret        = new LinkedList<>();
+Map<String, PriorityQueue<String>> ticketsMap = new HashMap<>();
+
+public List<String> findItinerary(List<List<String>> tickets) {
+    for (List<String> ticket : tickets) {
+        String src = ticket.get(0);
+        String tar = ticket.get(1);
+        if (!ticketsMap.containsKey(src)) {
+            ticketsMap.put(src, new PriorityQueue<>());
+        }
+        ticketsMap.get(src).add(tar);
+        /*if (ticketsMap.containsKey(src)) {
+                ticketsMap.get(src).add(tar);
+            } else {
+                // 使用优先队列，添加进去时会排序
+                ticketsMap.put(src, new PriorityQueue<String>() {{
+                    add(tar);
+                }});
+            }*/
+    }
+    dfs("JFK");
+    return ret;
+}
+
+void dfs(String src) {
+    PriorityQueue<String> list = ticketsMap.get(src);
+    while (list != null && list.size() > 0) {
+        dfs(list.poll());
+    }
+    // 头插法添加，递归时从下往上添加先添加的要在最后面
+    ret.addFirst(src);
+}
+```
 
 
 
