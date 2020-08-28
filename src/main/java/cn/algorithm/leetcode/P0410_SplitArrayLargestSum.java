@@ -28,11 +28,12 @@ import java.util.Arrays;
  */
 public class P0410_SplitArrayLargestSum {
     public static void main(String[] args) {
-//        int []nums = new int[]{7,2,5,10,8};
-//        int m = 2;
+        /*int []nums = new int[]{7,2,5,10,8};
+        int m = 2;*/
         int []nums = new int[]{1,2147483646};
         int m = 1;
         System.out.println(splitArray1(nums,m));
+        System.out.println(splitArray2(nums,m));
     }
 
     /**
@@ -133,4 +134,54 @@ public class P0410_SplitArrayLargestSum {
         return cnt <= m;
     }
 
+    static public int splitArray2(int[] nums, int m) {
+        // 初始化二分搜索边界
+        int left = 0, right = 0, len = nums.length;
+        for (int i = 0; i < len; i++) {
+            if(left < nums[i]){
+                left = nums[i];
+            }
+            right += nums[i];
+        }
+        // 开始二分搜索+验证
+        /*while (right > left){
+            int mid = (right - left) / 2 + left;
+            // 最小化最大值：验证符合要求后，验证有没有更小的符合要求的值，则缩小大值范围，right = mid -1
+            if (check2(nums, mid, m)) {
+                // 不能写成 mid - 1 防止当前大值是范围内的最小值，mid - 1 得到的值就小了一个数
+                right = mid ;
+            } else {
+                // 说明mid是验证了不能通过的，则范围缩小到mid+1
+                left = mid + 1;
+            }
+        }
+
+        return left;*/
+        // 两个数相邻时就结束条件
+        while (right - left > 1){
+            int mid = (right - left) / 2 + left;
+            // 最小化最大值：验证符合要求后，验证有没有更小的符合要求的值，则缩小大值范围，right = mid -1
+            if (check2(nums, mid, m)) {
+                right = mid;
+            } else {
+                left = mid;
+            }
+        }
+        //right是验证通过了的，而left是验证未通过，两个碰面的就说明范围缩小到left和right，而right验证通过，left验证未通过，故返回right
+        return right;
+    }
+
+    static boolean check2(int[] nums,int mid, int m){
+        // count需要初始化为1而不是0，因为统计的是分割后的个数，分割1次会分割成2份，分割2次回分割成3份
+        int count = 1, sum = 0;
+        for (int i = 0; i < nums.length; i++) {
+            if(sum + nums[i] > mid){
+                sum = nums[i];
+                count++;
+            }else {
+                sum += nums[i];
+            }
+        }
+        return count <= m;
+    }
 }
