@@ -482,6 +482,232 @@ public List<List<Integer>> findSubsequences(int[] nums) {
 }
 ```
 
+
+
+### [841. 钥匙和房间](https://leetcode-cn.com/problems/keys-and-rooms/)
+
+###### label：dfs、bfs
+
+#### 描述：
+
+> 难度中等
+>
+> 有 `N` 个房间，开始时你位于 `0` 号房间。每个房间有不同的号码：`0，1，2，...，N-1`，并且房间里可能有一些钥匙能使你进入下一个房间。
+> 在形式上，对于每个房间 `i` 都有一个钥匙列表 `rooms[i]`，每个钥匙 `rooms[i][j]` 由 `[0,1，...，N-1]` 中的一个整数表示，其中 `N = rooms.length`。 钥匙 `rooms[i][j] = v` 可以打开编号为 `v` 的房间。
+> 最初，除 `0` 号房间外的其余所有房间都被锁住。
+> 你可以自由地在房间之间来回走动。
+> 如果能进入每个房间返回 `true`，否则返回 `false`。
+> **示例 1：**
+> ```
+> 输入: [[1],[2],[3],[]]
+> 输出: true
+> 解释:  
+> 我们从 0 号房间开始，拿到钥匙 1。
+> 之后我们去 1 号房间，拿到钥匙 2。
+> 然后我们去 2 号房间，拿到钥匙 3。
+> 最后我们去了 3 号房间。
+> 由于我们能够进入每个房间，我们返回 true。
+> ```
+> **示例 2：**
+> ```
+> 输入：[[1,3],[3,0,1],[2],[0]]
+> 输出：false
+> 解释：我们不能进入 2 号房间。
+> ```
+> **提示：**
+>
+> 1. `1 <= rooms.length <= 1000`
+> 2. `0 <= rooms[i].length <= 1000`
+> 3. 所有房间中的钥匙数量总计不超过 `3000`。
+
+
+#### 方法一：dfs递归
+
+##### 思路：
+
+> dfs搜索每一条路径，标记访问过的房间，只要可以走完所有的房间就返回true，否则返回false。
+
+##### 复杂度：
+
+> 时间复杂度：O(n+m)，n为房间个数，m是房间钥匙总数
+>
+> 空间复杂度：O(n)，n为房间个数
+
+##### 代码：
+
+> ```java
+> public boolean canVisitAllRooms(List<List<Integer>> rooms) {
+>     int[] visitedRooms = new int[rooms.size()];
+>     visitedRooms[0] = 1;
+>     // 每个房间都访问过就返回true
+>     return dfs(rooms, 0, visitedRooms) == rooms.size();
+> }
+> 
+> int dfs(List<List<Integer>> rooms, int curRoom, int[] visitedRooms) {
+>     List<Integer> nextRooms = rooms.get(curRoom);
+>     int ret = 1;
+>     for (int i = 0; i < nextRooms.size(); i++) {
+>         int next = nextRooms.get(i);
+>         // 访问过的房间就不再访问了
+>         if (visitedRooms[next] == 1) {
+>             continue;
+>         }
+>         // 将访问的房间标记为已访问
+>         visitedRooms[next] = 1;
+>         ret += dfs(rooms, next, visitedRooms);
+>     }
+>     return ret;
+> }
+> ```
+
+#### 方法二：bfs
+
+##### 思路：
+
+> bfs搜索每一条路径，标记访问过的房间，只要可以走完所有的房间就返回true，否则返回false。
+
+##### 复杂度：
+
+> 时间复杂度：O(n+m)，n为房间个数，m是房间钥匙总数
+>
+> 空间复杂度：O(n)，n为房间个数
+
+##### 代码：
+
+```java
+ public boolean canVisitAllRooms(List<List<Integer>> rooms) {
+     int n = rooms.size(), num = 0;
+     boolean[] vis = new boolean[n];
+     Queue<Integer> que = new LinkedList<Integer>();
+     vis[0] = true;
+     que.offer(0);
+     while (!que.isEmpty()) {
+         int x = que.poll();
+         num++;
+         for (int it : rooms.get(x)) {
+             if (!vis[it]) {
+                 vis[it] = true;
+                 que.offer(it);
+             }
+         }
+     }
+     return num == n;
+ }
+```
+
+
+
+### [1567. 乘积为正数的最长子数组长度](https://leetcode-cn.com/problems/maximum-length-of-subarray-with-positive-product/)
+
+###### label：贪心、dp
+
+#### 描述：
+
+> 难度中等
+> 给你一个整数数组 `nums` ，请你求出乘积为正数的最长子数组的长度。
+> 一个数组的子数组是由原数组中零个或者更多个连续数字组成的数组。
+> 请你返回乘积为正数的最长子数组长度。
+> **示例 1：**
+> ```
+> 输入：nums = [1,-2,-3,4]
+> 输出：4
+> 解释：数组本身乘积就是正数，值为 24 。
+> ```
+> **示例 2：**
+> ```
+> 输入：nums = [0,1,-2,-3,-4]
+> 输出：3
+> 解释：最长乘积为正数的子数组为 [1,-2,-3] ，乘积为 6 。
+> 注意，我们不能把 0 也包括到子数组中，因为这样乘积为 0 ，不是正数。
+> ```
+> **示例 3：**
+> ```
+> 输入：nums = [-1,-2,-3,0,1]
+> 输出：2
+> 解释：乘积为正数的最长子数组是 [-1,-2] 或者 [-2,-3] 。
+> ```
+> **示例 4：**
+>
+> ```
+> 输入：nums = [-1,2]
+> 输出：1
+> ```
+> **示例 5：**
+> ```
+> 输入：nums = [1,2,3,5,-6,4,0,10]
+> 输出：4
+> ```
+> **提示：**
+>
+> - `1 <= nums.length <= 10^5`
+> - `-10^9 <= nums[i] <= 10^9`
+
+
+#### 方法一：贪心
+
+##### 思路：
+
+> 往后读取数据。出现0，负数统计清零；出现负数记录个数和第一个负数索引。计算最大值时，若有偶数个负数则max和当前索引减去初始索引（-1）比较；若有奇数个负数则max与索引减去第一个负数的索引比较。
+
+##### 复杂度：
+
+> 时间复杂度：O(n)，n数组长度
+>
+> 空间复杂度：O(1)
+
+##### 代码：
+
+```java
+public int getMaxLen(int[] nums) {
+    int max = 0, neg = 0, neg1Index = 0, lastIndex = -1;
+    for (int i = 0, len = nums.length; i < len; i++) {
+        int cur = nums[i];
+        // 记录负数的个数
+        if (cur < 0) {
+            neg++;
+            if (neg == 1) {
+                neg1Index = i;
+                continue;
+            }
+        }
+        // 以0为分割符
+        else if (cur == 0) {
+            neg = neg1Index = 0;
+            lastIndex = i;
+        }
+        // 偶数个负数则max和当前索引减去初始索引
+        if (neg % 2 == 0) {
+            max = Math.max(max, i - lastIndex);
+        }
+        // 奇数个负数则max与索引减去从第一个负数索引
+        else {
+            max = Math.max(max, i - neg1Index);
+        }
+    }
+    return max;
+}
+```
+
+#### 方法二：动态规划
+
+##### 思路：
+
+> todo，暂时有点懵
+
+##### 复杂度：
+
+> 时间复杂度：O(n)，n数组长度
+>
+> 空间复杂度：O(1)
+
+##### 代码：
+
+```java
+
+```
+
+
+
 ## 一笔画问题
 
 #### 说明
