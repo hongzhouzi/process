@@ -179,7 +179,7 @@ run(); // 直接调用方法
    二进制（64位）：看最后三位 000（轻量级锁，通过最后三位查看锁的标记和状态，上图中含义表实际上轻量级锁只通过后面2位判断，无锁和偏向锁主要通过后三位判断）
 
 
-3. ​
+3. 
 
 #### 锁的升级
 
@@ -1047,23 +1047,157 @@ public final void acquire(int arg) {
 > - await：将当前线程挂起阻塞（会释放锁）
 > - signal：唤醒阻塞的线程
 
-**使用案例：**
+###### **使用案例：生产者消费者模型**
+
+> 用Condition和synchronized关键字都可以实现。
+>
+> 生产者先生产，只要生产了一个消息放在队列中就可通知消费者（signal）（但消费者啥时候能抢占到锁就看它造化了），直到到队列满了生产者就停止生产（await，阻塞生产者线程、释放锁并间接唤醒消费者线程）。消费者被唤醒抢占到锁后去队列中取，只要队列可以能继续放下消息就可通知生产者（signal），直到队列中没有消息了就停止消费（await，阻塞消费者者线程、释放锁并间接唤醒生产者线程）；生产者线程被唤醒后继续生产。
+>
+> 实现步骤如下：
+>
+> 0. 抢占锁，准备生产;
+> 1. 判断是否达到最大生产数，若达到则阻塞并释放锁
+> 2. 生产消息（往队列中添加消息）
+> 3. 通知消费者（只要有消息了就去通知，消费者啥时候消费看它啥时候能抢占到锁）
+> 4. 释放锁
+>
+> 下面是使用condition实现的案例：
+
+**生产者**
 
 ```java
+public class Producer implements Runnable {
 
+    /**
+     * 以下几个参数为生产者消费者共用的参数，可在使用时定义通过构造参数传过来；
+     * 或者定义成类变量，生产者消费者通过类取到该变量。
+     */
+    Deque<String> msg;
+    int maxSize ;
+    Lock lock;
+    Condition condition;
 
+    public Producer(Deque queue, int maxSize, Lock lock, Condition condition){
+        this.msg = queue;
+        this.maxSize = maxSize;
+        this.lock = lock;
+        this.condition = condition;
+    }
 
+    @Override
+    public void run() {
+        int i = 0;
+        while (true){
+            i++;
+            // 0.抢占锁，准备生产（注意位置是在while(true)里面）
+            lock.lock();
+            try{
+                // 1.达到最大生产数，阻塞并释放锁
+                while (msg.size() == maxSize){
+                    System.out.println("队列【满】了，等待消费中……");
+                    // 释放锁唤醒消费者线程，并将当前线程加入condition队列(阻塞)
+                    /*
+                    消费者线程被阻塞后释放锁唤醒当前生产者线程，
+                    之后消费者线程被加入condition队列(阻塞)
+                     */
+                    /*
+                    还可能是通过consumer中的signal唤醒的，放在同步队列中
+                     */
+                    condition.await();
+                }
+                Thread.sleep(1000);
+                // 2.生产消息
+                msg.add("生产的消息"+i);
+                System.out.println("【生产】："+msg.getLast());
+                // 3.通知消费者（只要有消息了就去通知，消费者啥时候消费看它啥时候能抢占到锁）
+                condition.signal();
+            }catch (Exception e){
+                e.printStackTrace();
+            }finally {
+                // 4.释放锁
+                lock.unlock();
+            }
+
+        }
+    }
+}
 ```
 
-构建生产者消费者模型
+消费者
 
 ```java
-// 生产者先循环生产，到队列满了就await。消费者去队列中取，队列中没有就await，并通知(signal)生产者；生产者线程被唤醒后继续生产。
-// 用Condition和synchronized关键字都可以实现
+public class Consumer implements Runnable {
 
+    /**
+     * 以下几个参数为生产者消费者共用的参数，可在使用时定义通过构造参数传过来；
+     * 或者定义成类变量，生产者消费者通过类取到该变量。
+     */
+    Deque<String> msg;
+    int maxSize ;
+    Lock lock;
+    Condition condition;
+
+    public Consumer(Deque queue, int maxSize, Lock lock, Condition condition){
+        this.msg = queue;
+        this.maxSize = maxSize;
+        this.lock = lock;
+        this.condition = condition;
+    }
+
+
+    @Override
+    public void run() {
+        while (true){
+            // 0.抢占锁，准备消费（注意位置是在while(true)里面）
+            lock.lock();
+            try{
+                // 1.队列空了，阻塞等待
+                while (msg.isEmpty()){
+                    System.out.println("队列【空】了，等待生产中……");
+                    // 阻塞线程并释放锁
+                    condition.await();
+                }
+                Thread.sleep(1000);
+                // 2.正常消费消息
+                System.out.println("【消费】："+ msg.remove());
+                // 3.唤醒生产者
+                condition.signal();
+            }catch (Exception e){
+                e.printStackTrace();
+            }finally {
+                // 4.释放锁
+                lock.unlock();
+            }
+        }
+    }
+}
 ```
 
-> wait也是需要释放锁的，不释放锁则没有办法让其他线程抢占锁，就会形成死锁。
+**应用测试类**
+
+```java
+public class App {
+    public static void main(String[] args) {
+        /**
+         * 以下几个参数为生产者消费者共用的参数，可在使用时定义通过构造参数传过去；
+         * 或者定义成类变量，生产者消费者通过类取到该变量。
+         */
+        Deque<String> queue = new LinkedList<>();
+        Lock lock = new ReentrantLock();
+        Condition condition = lock.newCondition();
+        int maxSize = 5;
+
+        Producer producer = new Producer(queue, maxSize,lock,condition);
+        Consumer consumer = new Consumer(queue, maxSize,lock,condition);
+
+        new Thread(producer).start();
+        new Thread(consumer).start();
+    }
+}
+```
+
+> 使用synchronized实现时就用wait/notify来实现通知和唤醒，wait也是需要释放锁的，不释放锁则没有办法让其他线程抢占锁，就会形成死锁。
+>
 
 
 
@@ -1078,11 +1212,9 @@ public final void acquire(int arg) {
 
 > 可以和上面重入锁差不多的设计。
 >
-> await():用unlock释放锁的方式释放锁，释放锁后将线程加入等待队列中，双向链表做阻塞队列存储等待的线程。
+> await():用unlock释放锁的方式释放锁，释放锁后将线程加入等待队列中，链表做阻塞队列存储等待的线程。
 >
 > signal():到等待队列中唤醒线程，让其去AQS中抢占锁，抢占到了锁才能继续执行。
-
-
 
 
 
@@ -1194,4 +1326,200 @@ final boolean transferForSignal(Node node) {
 > 阻塞队列（XXBlockingQueue、XXBlockingDeque）：当生队列中消息长度大于设定的最大长度时就阻塞生产者，当队列长度为零时就阻塞消费者。
 >
 
+应用场景
+
+阻塞队列，阻塞队列的实现是基于Condition条件控制的。
+
+
+
+
+
+#### 构建异步化的责任链
+
+技术点：Thread(异步)、volatile(线程通信可见性)、BlockedQueued(存放！多个消息)、责任链模式
+
+
+
+
+
 ###### 被阻塞后的线程唤醒逻辑
+
+
+
+#### CountDownLatch
+
+> 猜想通过state进行递减控制
+
+初始化时将数字设置到state中。
+
+共享锁：唤醒线程时将同步队列中的全部唤醒，使用传递方式唤醒。
+
+##### await()
+
+```java
+public void await() throws InterruptedException {
+    sync.acquireSharedInterruptibly(1);
+}
+
+ public final void acquireSharedInterruptibly(int arg)
+     throws InterruptedException {
+     if (Thread.interrupted())
+         throw new InterruptedException();
+     if (tryAcquireShared(arg) < 0)
+         doAcquireSharedInterruptibly(arg);
+ }
+
+
+private void doAcquireSharedInterruptibly(int arg)
+    throws InterruptedException {
+    final Node node = addWaiter(Node.SHARED);
+    boolean failed = true;
+    try {
+        for (;;) {
+            final Node p = node.predecessor();
+            if (p == head) {
+                int r = tryAcquireShared(arg);
+                if (r >= 0) {
+                    setHeadAndPropagate(node, r);//设置头节点并且传递
+                    p.next = null; // help GC
+                    failed = false;
+                    return;
+                }
+            }
+            if (shouldParkAfterFailedAcquire(p, node) &&
+                parkAndCheckInterrupt()) // 会阻塞在这儿，唤醒线程时也就是从这儿继续执行
+                throw new InterruptedException();
+        }
+    } finally {
+        if (failed)
+            cancelAcquire(node);
+    }
+}
+
+
+// 添加到等待队列
+private Node addWaiter(Node mode) {
+    Node node = new Node(Thread.currentThread(), mode);
+    // Try the fast path of enq; backup to full enq on failure
+    Node pred = tail;
+    if (pred != null) {
+        node.prev = pred;
+        if (compareAndSetTail(pred, node)) {
+            pred.next = node;// 这儿代码块非原子操作，若执行到这儿前被其他中断了，就会导致设置了tail但next为空
+            return node;
+        }
+    }
+    enq(node);
+    return node;
+}
+
+// 传递唤醒
+private void setHeadAndPropagate(Node node, int propagate) {
+        Node h = head; // Record old head for check below
+        setHead(node);
+        /*
+         * Try to signal next queued node if:
+         *   Propagation was indicated by caller,
+         *     or was recorded (as h.waitStatus either before
+         *     or after setHead) by a previous operation
+         *     (note: this uses sign-check of waitStatus because
+         *      PROPAGATE status may transition to SIGNAL.)
+         * and
+         *   The next node is waiting in shared mode,
+         *     or we don't know, because it appears null
+         *
+         * The conservatism in both of these checks may cause
+         * unnecessary wake-ups, but only when there are multiple
+         * racing acquires/releases, so most need signals now or soon
+         * anyway.
+         */
+        if (propagate > 0 || h == null || h.waitStatus < 0 ||
+            (h = head) == null || h.waitStatus < 0) {
+            Node s = node.next;
+            // s==null的情况是在addWaiter时建立了prev以及设置了tail后给next赋值前被其他线程中断了就会出现这个next==null
+            if (s == null || s.isShared())
+                doReleaseShared();// 传递
+        }
+    }
+
+```
+
+
+
+
+
+##### countDown()
+
+唤醒锁，将state递减
+
+```java
+public void countDown() {
+    sync.releaseShared(1);
+}
+
+public final boolean releaseShared(int arg) {
+    if (tryReleaseShared(arg)) {
+        doReleaseShared();
+        return true;
+    }
+    return false;
+}
+
+
+// 共享锁是可以唤醒所有的线程，而不是针对某一个。可以由多个线程同时抢占到锁
+protected int tryAcquireShared(int acquires) {
+    for (;;) { // 循环是因为可能有多个线程同时进行cas修改，但每次都只有一个修改成功，这儿让修改失败的多次尝试，直到state为0
+        if (hasQueuedPredecessors())
+            return -1;
+        int available = getState();
+        int remaining = available - acquires;
+        if (remaining < 0 ||
+            compareAndSetState(available, remaining))
+            return remaining;
+    }
+}
+
+
+private void doReleaseShared() {
+        /*
+         * Ensure that a release propagates, even if there are other
+         * in-progress acquires/releases.  This proceeds in the usual
+         * way of trying to unparkSuccessor of head if it needs
+         * signal. But if it does not, status is set to PROPAGATE to
+         * ensure that upon release, propagation continues.
+         * Additionally, we must loop in case a new node is added
+         * while we are doing this. Also, unlike other uses of
+         * unparkSuccessor, we need to know if CAS to reset status
+         * fails, if so rechecking.
+         */
+    for (;;) {
+        Node h = head;
+        if (h != null && h != tail) {
+            int ws = h.waitStatus;
+            if (ws == Node.SIGNAL) {
+                if (!compareAndSetWaitStatus(h, Node.SIGNAL, 0))
+                    continue;            // loop to recheck cases
+                unparkSuccessor(h);// 唤醒时存在锁的传递，和之前其他地方唤醒线程不一样，主要逻辑在await阻塞中实现的传递唤醒，传递唤醒时会多次进入此方法
+            }
+            else if (ws == 0 &&
+                     !compareAndSetWaitStatus(h, 0, Node.PROPAGATE))
+                continue;                // loop on failed CAS
+        }
+        if (h == head)                   // loop if head changed
+            break;
+    }
+}
+```
+
+
+
+##### Semaphore
+
+> 流量控制，设定n个令牌数量，只有拿到令牌才能继续往下执行，没拿到就阻塞。
+
+
+
+##### Automic原子操作（安全性）
+
+> 底层使用cas实现
+
