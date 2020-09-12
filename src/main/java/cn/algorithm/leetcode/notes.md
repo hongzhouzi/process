@@ -532,9 +532,116 @@ public int[] topKFrequent(int[] nums, int k) {
 
 ----------
 
+### [77. 组合](https://leetcode-cn.com/problems/combinations/)
+
+###### label：子序列、dfs、bfs、组合
+
+#### 描述：
+
+> 难度中等
+>
+> 给定两个整数 *n* 和 *k*，返回 1 ... *n* 中所有可能的 *k* 个数的组合。
+>
+> **示例:**
+>
+> ```java
+> 输入: n = 4, k = 2
+> 输出:
+> [
+>   [2,4],
+>   [3,4],
+>   [2,3],
+>   [1,2],
+>   [1,3],
+>   [1,4],
+> ]
+> ```
+
+
+#### 方法一：dfs+回溯
+
+##### 思路：
+
+> dfs遍历过程中回溯，临时结果集中结果个数满足题意就添加到结果集中并结束。
+
+##### 复杂度：
+
+> 时间复杂度：O()
+>
+> 空间复杂度：O()
+
+##### 代码：
+
+```java
+public List<List<Integer>> combine(int n, int k) {
+    List<List<Integer>> res = new ArrayList<>();
+    if (k <= 0 || n < k) {
+        return res;
+    }
+    // 从 1 开始是题目的设定
+    Deque<Integer> path = new ArrayDeque<>();
+    dfs(n, k, 1, path, res);
+    return res;
+}
+
+void dfs(int n, int k, int begin, Deque<Integer> path, List<List<Integer>> res) {
+    // 递归终止条件是：path 的长度等于 k
+    if (path.size() == k) {
+        res.add(new ArrayList<>(path));
+        return;
+    }
+
+    // 遍历可能的搜索起点
+    for (int i = begin; i <= n; i++) {
+        // 加入临时结果集+回溯
+        path.addLast(i);
+        dfs(n, k, i + 1, path, res);
+        path.removeLast();
+    }
+}
+```
+
+
+
+
+
+**代码：**
+
+```java
+List<Integer> temp = new ArrayList<Integer>();
+List<List<Integer>> ans = new ArrayList<List<Integer>>();
+
+public List<List<Integer>> combine(int n, int k) {
+    dfs(1, n, k);
+    return ans;
+}
+
+public void dfs(int cur, int n, int k) {
+    // 剪枝：temp 长度加上区间 [cur, n] 的长度小于 k，不可能构造出长度为 k 的 temp
+    if (temp.size() + (n - cur + 1) < k) {
+        return;
+    }
+    // 记录合法的答案
+    if (temp.size() == k) {
+        ans.add(new ArrayList<Integer>(temp));
+        return;
+    }
+    // 考虑选择当前位置
+    temp.add(cur);
+    dfs(cur + 1, n, k);
+    temp.remove(temp.size() - 1);
+    // 考虑不选择当前位置
+    dfs(cur + 1, n, k);
+}
+```
+
+
+
+-------
+
 ### [491. 递增子序列](https://leetcode-cn.com/problems/increasing-subsequences/)
 
-###### label：子序列、dfs、bfs
+###### label：子序列、dfs、bfs、组合
 
 #### 描述：
 
@@ -653,6 +760,55 @@ public List<List<Integer>> findSubsequences(int[] nums) {
     return ret;
 }
 ```
+
+#### 方法三：dfs+回溯
+
+##### 思路：
+
+> dfs遍历过程中回溯，直到数组遍历完就结束，若子序列长度满足题意就添加到结果集中。
+
+##### 复杂度：
+
+> 时间复杂度：O()
+>
+> 空间复杂度：O()
+
+**代码：**
+
+```java
+List<Integer> temp = new ArrayList<Integer>();
+List<List<Integer>> ans = new ArrayList<List<Integer>>();
+
+public List<List<Integer>> findSubsequences(int[] nums) {
+    dfs(0, Integer.MIN_VALUE, nums);
+    return ans;
+}
+
+public void dfs(int cur, int last, int[] nums) {
+    // 搜索到尽头就返回
+    if (cur == nums.length) {
+        // 子串长度满足条件就添加到结果集中
+        if (temp.size() >= 2) {
+            ans.add(new ArrayList<Integer>(temp));
+        }
+        return;
+    }
+    // 满足条件则添加到临时结果集+回溯
+    if (nums[cur] >= last) {
+        temp.add(nums[cur]);
+        dfs(cur + 1, nums[cur], nums);
+        temp.remove(temp.size() - 1);
+    }
+    // 不满足则继续往后搜索
+    if (nums[cur] != last) {
+        dfs(cur + 1, last, nums);
+    }
+}
+```
+
+
+
+
 
 
 
@@ -877,6 +1033,290 @@ public int getMaxLen(int[] nums) {
 ```java
 
 ```
+
+--------
+
+## 组合问题
+
+#### 说明
+
+> 该专题主要总结了与组合相关的题目，给定一个集合，再给定条件，计算出该条件下集合中的各种组合。
+>
+> 这种问题一般使用回溯解决
+
+
+
+### [216. 组合总和 III](https://leetcode-cn.com/problems/combination-sum-iii/)
+
+###### label：回溯、dfs
+
+
+#### 描述：
+
+> 难度中等
+>
+> 找出所有相加之和为 ***n*** 的 **k** 个数的组合。组合中只允许含有 1 - 9 的正整数，并且每种组合中不存在重复的数字。
+>
+> **说明：**
+>
+> - 所有数字都是正整数。
+> - 解集不能包含重复的组合。 
+>
+> 示例 1:
+>
+> 输入: k = 3, n = 7
+> 输出: [[1,2,4]]
+> 示例 2:
+>
+> 输入: k = 3, n = 9
+> 输出: [[1,2,6], [1,3,5], [2,3,4]
+
+#### 方法一：
+
+##### 思路：
+
+> 将1-9的数进行深度优先搜索并回溯，遍历过程中若相加的和已经大于n了，就对此剪枝不用继续往后搜索了，当满足相加和==n且个数为k个时就添加到结果集中并返回。
+
+##### 复杂度：
+
+> 时间复杂度：O(n^2)
+>
+> 空间复杂度：O(n)
+
+##### 代码：
+
+```java
+List<List<Integer>> ret = new LinkedList<>();
+int                 target;
+int                 numCount;
+
+public List<List<Integer>> combinationSum3(int k, int n) {
+    this.target = n;
+    this.numCount = k;
+    dfs(new LinkedList<>(), 0, 1);
+    return ret;
+}
+
+void dfs(List<Integer> path, int pathSum, int startIndex) {
+    // 添加到结果集中，并返回
+    if (pathSum == target && numCount == path.size()) {
+        ret.add(new ArrayList<>(path));
+        return;
+    }
+    // 遍历并回溯
+    for (int i = startIndex; i <= 9; i++) {
+        // 剪枝遍历
+        if (pathSum + i <= target && path.size() <= numCount) {
+            path.add(i);
+            dfs(path, pathSum + i, i + 1);
+            path.remove(path.size() - 1);
+        }
+    }
+}
+```
+
+
+
+### [77. 组合](https://leetcode-cn.com/problems/combinations/)
+
+###### label：回溯、dfs
+
+
+#### 描述：
+
+> 难度中等
+>
+> 给定两个整数 n 和 k，返回 1 ... n 中所有可能的 k 个数的组合。
+>
+> **示例:**
+>
+> 输入: n = 4, k = 2
+> 输出:
+> [
+>   [2,4],
+>   [3,4],
+>   [2,3],
+>   [1,2],
+>   [1,3],
+>   [1,4],
+> ]
+
+#### 方法一：
+
+##### 思路：
+
+> 将1-n的数进行深度优先搜索并回溯，个数为k个时就添加到结果集中并返回。过程中可以剪枝优化，搜索起点的上界 + 接下来要选择的元素个数 - 1 = n 这样才可以凑个n个，不然肯定凑不齐n个。
+
+##### 复杂度：
+
+> 时间复杂度：O(k^n)
+>
+> 空间复杂度：O(n)
+
+##### 代码：
+
+```java
+public List<List<Integer>> combine(int n, int k) {
+    List<List<Integer>> res = new ArrayList<>();
+    if (k <= 0 || n < k) {
+        return res;
+    }
+    // 从 1 开始是题目的设定
+    List<Integer> path = new ArrayList<>();
+    dfs(n, k, 1, path, res);
+    return res;
+}
+
+void dfs(int n, int k, int begin, List<Integer> path, List<List<Integer>> res) {
+    // 递归终止条件是：path 的长度等于 k
+    if (path.size() == k) {
+        res.add(new ArrayList<>(path));
+        return;
+    }
+
+    // 遍历可能的搜索起点
+    // 剪枝：搜索起点的上界 + 接下来要选择的元素个数 - 1 = n   n - (k - path.size()) + 1
+    for (int i = begin, len = n - (k - path.size()) + 1; i <= len; i++) {
+        // 加入临时结果集+回溯
+        path.add(i);
+        dfs(n, k, i + 1, path, res);
+        path.remove(path.size() - 1);
+    }
+}
+
+```
+
+
+
+### [39. 组合总和](https://leetcode-cn.com/problems/combination-sum/)
+
+###### label：回溯、dfs
+
+#### 描述：
+
+> 难度中等
+>
+> 给定一个**无重复元素**的数组 `candidates` 和一个目标数 `target` ，找出 `candidates` 中所有可以使数字和为 `target` 的组合。
+>
+> `candidates` 中的数字可以无限制重复被选取。
+>
+> **说明：**
+>
+> - 所有数字（包括 `target`）都是正整数。
+> - 解集不能包含重复的组合。 
+>
+> **示例 1：**
+>
+> 输入：candidates = [2,3,6,7], target = 7,
+> 所求解集为：
+> [
+>   [7],
+>   [2,2,3]
+> ]
+> 示例 2：
+>
+> 输入：candidates = [2,3,5], target = 8,
+> 所求解集为：
+> [
+>   [2,2,2,2],
+>   [2,3,3],
+>   [3,5]
+> ]
+>
+>
+> 提示：
+>
+> 1 <= candidates.length <= 30
+> 1 <= candidates[i] <= 200
+> candidate 中的每个元素都是独一无二的。
+> 1 <= target <= 500
+
+#### 方法一：
+
+##### 思路：
+
+> 将1-n的数进行深度优先搜索并回溯，个数为k个时就添加到结果集中并返回。过程中可以剪枝优化，搜索起点的上界 + 接下来要选择的元素个数 - 1 = n 这样才可以凑个n个，不然肯定凑不齐n个。
+
+##### 复杂度：
+
+> 时间复杂度：O()
+>
+> 空间复杂度：O()
+
+##### 代码：
+
+```java
+List<List<Integer>> ret = new LinkedList<>();
+int[]               candidates;
+int                 target;
+Set<List>           set = new HashSet<>();
+
+public List<List<Integer>> combinationSum(int[] candidates, int target) {
+    // 剪枝的前提
+    Arrays.sort(candidates);
+    this.candidates = candidates;
+    this.target = target;
+    dfs(new LinkedList<>(), 0);
+    return ret;
+}
+
+void dfs(List<Integer> path, int pathSum) {
+    if (pathSum == target) {
+        // 排序去重
+        ArrayList<Integer> addPath = new ArrayList<>(path);
+        Collections.sort(addPath);
+        if (!set.contains(addPath)) {
+            ret.add(addPath);
+            set.add(addPath);
+        }
+        return;
+    }
+    for (int i = 0; i < candidates.length; i++) {
+        // 剪枝，先对candidates排序，后面如果pathSum比target大就不用遍历了
+        if (pathSum + candidates[i] <= target) {
+            path.add(candidates[i]);
+            dfs(path, pathSum + candidates[i]);
+            path.remove(path.size() - 1);
+        }
+    }
+}
+```
+
+**优化**
+
+> 优化去重环节：遍历时按照一定顺序从前往后遍历就可以保证结果集中是有序的而且不会重复
+
+```java
+List<List<Integer>> ret = new ArrayList<>();
+int[]               candidates;
+int                 target;
+
+public List<List<Integer>> combinationSum(int[] candidates, int target) {
+    Arrays.sort(candidates);
+    this.candidates = candidates;
+    this.target = target;
+    dfs(new ArrayList<>(), 0, 0);
+    return ret;
+}
+
+void dfs(List<Integer> path, int pathSum, int startIndex) {
+    if (pathSum == target) {
+        ret.add(new ArrayList<>(path));
+        return;
+    }
+    for (int i = startIndex; i < candidates.length; i++) {
+        // 剪枝，先对candidates排序，后面如果pathSum比target大就不用遍历了
+        if (pathSum + candidates[i] <= target) {
+            path.add(candidates[i]);
+            // 因为允许一个数出现多次，遍历时这儿依然从i开始
+            dfs(path, pathSum + candidates[i], i);
+            path.remove(path.size() - 1);
+        }
+    }
+}
+```
+
+
 
 
 
@@ -1355,7 +1795,7 @@ void dfs(StringBuilder sb, String digits, int n, List<String> res) {
 
 ### [107. 二叉树的层次遍历 II](https://leetcode-cn.com/problems/binary-tree-level-order-traversal-ii/)
 
-###### label：树高度
+###### label：树高度、层次遍历
 
 ##### 描述
 
@@ -1513,6 +1953,247 @@ void dfs(TreeNode root, List<List<Integer>> ret, int level) {
     ret.get(ret.size() - 1 - level).add(root.val);
     dfs(root.left, ret, level + 1);
     dfs(root.right, ret, level + 1);
+}
+```
+
+
+
+### [637. 二叉树的层平均值](https://leetcode-cn.com/problems/average-of-levels-in-binary-tree/)
+
+###### label：层次遍历
+
+##### 描述
+
+> 难度简单
+>
+> 给定一个非空二叉树, 返回一个由每层节点平均值组成的数组。
+>
+> **示例 1：**
+>
+> ```
+> 输入：
+>     3
+>    / \
+>   9  20
+>     /  \
+>    15   7
+> 输出：[3, 14.5, 11]
+> 解释：
+> 第 0 层的平均值是 3 ,  第1层是 14.5 , 第2层是 11 。因此返回 [3, 14.5, 11] 。
+> ```
+>
+> **提示：**
+>
+> - 节点值的范围在32位有符号整数范围内。
+
+#### 方法一 bfs
+
+##### 思路
+
+> 用list集合存放父节点，用递归方式遍历，每层遍历过程即对当前层次的的数据进行遍历，遍历时将下层的放入临时list中并将当前层的数据平均值求出。
+
+##### 复杂度分析
+
+> 时间复杂度：O(n)
+>
+> 空间复杂度：O(n)
+
+##### 代码
+
+```java
+public List<Double> averageOfLevels(TreeNode root) {
+    List<TreeNode> list = new ArrayList<>();
+    list.add(root);
+    List<Double> ret = new ArrayList<>();
+    bfs(ret, list);
+    return ret;
+}
+
+/**
+* 广度优先遍历
+*
+* @param ret     返回值
+* @param parents 父节点集合
+*/
+void bfs(List<Double> ret, List<TreeNode> parents) {
+    if (Objects.isNull(parents) || parents.isEmpty()) {
+        return;
+    }
+
+    List<TreeNode> temp = new LinkedList<>();
+    double sum = 0;
+    int count = 0;
+    // 遍历父节点集合，并计算该层值的平均值
+    for (TreeNode node : parents) {
+        if (Objects.nonNull(node.left)) {
+            temp.add(node.left);
+        }
+        if (Objects.nonNull(node.right)) {
+            temp.add(node.right);
+        }
+        sum += node.val;
+        count++;
+    }
+    ret.add(sum / count);
+    // 继续往下层搜索
+    bfs(ret, temp);
+}
+```
+
+#### 方法二 dfs
+
+##### 思路
+
+> 先深度优先搜索，将每层的数据添加到对应层次的list中，最后对每层的list求平均值。
+
+##### 复杂度分析
+
+> 时间复杂度：O(n)
+>
+> 空间复杂度：O(n)
+
+##### 代码
+
+```java
+public List<Double> averageOfLevels(TreeNode root) {
+    List<List<Integer>> res = new ArrayList<>();
+    dfs(root, res, 0);
+    List<Double> ret = new LinkedList<>();
+    for (List<Integer> integers : res) {
+        long sum = 0;
+        for (Integer i : integers) {
+            sum += i;
+        }
+        ret.add((double) sum / integers.size());
+    }
+    return ret;
+}
+
+void dfs(TreeNode root, List<List<Integer>> ret, int level) {
+    if (Objects.isNull(root)) {
+        return;
+    }
+    if (ret.size() == level) {
+        ret.add(new ArrayList<>());
+    }
+    // 在对应层次将值添加到结果集
+    ret.get(level).add(root.val);
+    dfs(root.left, ret, level + 1);
+    dfs(root.right, ret, level + 1);
+}
+```
+
+
+
+### [257. 二叉树的所有路径](https://leetcode-cn.com/problems/binary-tree-paths/)
+
+###### label：树高度
+
+##### 描述
+
+> 难度简单
+>
+> 给定一个二叉树，返回所有从根节点到叶子节点的路径。
+>
+> **说明:** 叶子节点是指没有子节点的节点。
+>
+> **示例:**
+>
+> 输入:
+>
+>    1
+>  /   \
+> 2     3
+>  \
+>   5
+>
+> 输出: ["1->2->5", "1->3"]
+>
+> 解释: 所有根节点到叶子节点的路径为: 1->2->5, 1->3
+
+#### 方法一
+
+##### 思路
+
+> 自顶向下，计算出树左右两边的最大高度，保证左右两边的高度差小于2，同时满足左右两边的子树也满足平衡。
+
+##### 复杂度分析
+
+> 时间复杂度：O(n)
+>
+> 空间复杂度：O(n)
+
+##### 代码
+
+```java
+List<String> ret = new LinkedList<>();
+
+public List<String> binaryTreePaths(TreeNode root) {
+    dfs(root, new ArrayList<>());
+    return ret;
+}
+
+void dfs(TreeNode root, List<Integer> vals) {
+    if (Objects.isNull(root)) {
+        return;
+    }
+    // 左右子节点都为空，说明当前节点是叶子节点
+    if (Objects.isNull(root.left) && Objects.isNull(root.right)) {
+        // 将当前叶子节点添加到结果集
+        vals.add(root.val);
+        // 处理拼接符
+        StringBuilder addSb = new StringBuilder();
+        for (int i = 0, len = vals.size(); i < len; i++) {
+            addSb.append(vals.get(i));
+            if (i == len - 1) {
+                continue;
+            }
+            addSb.append("->");
+        }
+        ret.add(addSb.toString());
+        // 回溯，将当前值从结果集中移除
+        vals.remove(vals.size() - 1);
+        return;
+    }
+    // 将当前值放入结果集
+    vals.add(root.val);
+    // 深度优先遍历左右节点
+    dfs(root.left, vals);
+    dfs(root.right, vals);
+    // 回溯，将当前值从结果集中移除
+    vals.remove(vals.size() - 1);
+}
+```
+
+##### 简化
+
+> 上面代码比较多，主要是处理拼接符比较冗余，拼接符处理好，在传递参数时就可以不用传list集合直接传StringBuilder即可，尝试将其简化。
+>
+> 第一个数的前面没有"->"，其他数前面均有"->"，那么在StringBuilder长度为0时拼接空字符串，其他时候拼接"->"即可。
+
+```java
+List<String> ret = new LinkedList<>();
+
+public List<String> binaryTreePaths(TreeNode root) {
+    dfs(root, new StringBuilder());
+    return ret;
+}
+
+void dfs(TreeNode root, StringBuilder sb){
+    if(Objects.isNull(root)){
+        return;
+    }
+    // 处理箭头号
+    sb.append(sb.length() == 0 ? "" : "->");
+    sb.append(root.val);
+    // 到达叶子节点
+    if(Objects.isNull(root.left) && Objects.isNull(root.right)){
+        ret.add(sb.toString());
+        return;
+    }
+    // 这儿用new的方式，之前的就不会受影响
+    dfs(root.left, new StringBuilder(sb));
+    dfs(root.right, new StringBuilder(sb));
 }
 ```
 
