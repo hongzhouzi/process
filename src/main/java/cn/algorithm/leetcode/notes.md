@@ -1793,6 +1793,160 @@ void dfs(StringBuilder sb, String digits, int n, List<String> res) {
 
 
 
+### 树的各种遍历
+
+> 树的遍历主要分为两大类：深度优先遍历、广度优先遍历（层次遍历），然后对深度优先遍历又分为三类，先序遍历、中序遍历、后序遍历，这儿的先中后是指根的访问时机（先序：根先于左右孩子访问；中序：根在左右孩子中访问，先左再根后右；后序：根在左右孩子访问后访问）。
+>
+> **深度优先：**在编码实现时用递归最简单，因为深度优先遍历过程中主要需要**回溯特性**，（沿着某路径遍历到最深处之后就需要沿刚遍历的路径退回遍历其他分支）而**递归**天然有回溯特性，所以最简单的实现方式就是用递归。除了递归还有**栈**这种数据结构有回溯性，所以用递归能实现的功能用栈肯定也能实现，因为本质上递归是函数自我调用过程，而在程序运行层面有个方法栈来记录方法的调用。
+>
+> **广度优先遍历：**遍历时从根节点一层一层的往下层遍历，遍历过程使用**队列**结构存储待遍历节点（从队列中取遍历的节点，并将其子节点放入队列中，队列为空时即遍历完了）。
+
+
+
+#### 深度优先遍历
+
+##### 递归实现
+
+```java
+// ==================先序遍历==================
+void preorderTraversal(TreeNode root){
+    if(root == null){
+        return;
+    }
+    //先序
+    System.out.println(root.val);
+    dfs(root.left);
+    dfs(root.right);
+}
+
+// ==================中序遍历==================
+void inorderTraversal(TreeNode root){
+    if(root == null){
+        return;
+    }
+    dfs(root.left);
+    //中序
+    System.out.println(root.val);
+    dfs(root.right);
+}
+
+// ==================后序遍历==================
+void postorderTraversal(TreeNode root){
+    if(root == null){
+        return;
+    }
+    dfs(root.left);
+    dfs(root.right);
+    //后序
+    System.out.println(root.val);
+}
+```
+
+
+
+##### 栈实现
+
+```java
+// ==================先序遍历==================
+public List<Integer> preorderTraversal(TreeNode root) {
+    Stack<TreeNode> stack = new Stack<>();
+    List<Integer> ret = new ArrayList<>();
+    TreeNode curNode = root;
+    while (curNode != null || !stack.isEmpty()) {
+        // 输出值、迭代访问左孩子
+        while (curNode != null) {
+            stack.push(curNode);
+            // 在迭代下个左孩子前，输出值
+            ret.add(curNode.val);
+            curNode = curNode.left;
+        }
+        // 访问右孩子
+        curNode = stack.pop();
+        curNode = curNode.right;
+    }
+    return ret;
+}
+
+// ==================中序遍历==================
+public List<Integer> inorderTraversal(TreeNode root) {
+    Stack<TreeNode> stack = new Stack<>();
+    List<Integer> ret = new ArrayList<>();
+    TreeNode curNode = root;
+    while (curNode != null || !stack.isEmpty()) {
+        // 迭代访问左孩子
+        while (curNode != null) {
+            stack.push(curNode);
+            curNode = curNode.left;
+        }
+        curNode = stack.pop();
+        // 在迭代下个右孩子前，输出值
+        ret.add(curNode.val);
+        // 访问右孩子
+        curNode = curNode.right;
+    }
+    return ret;
+}
+
+// ==================后序遍历==================
+/*
+后序遍历处理思路和先序中序不一样，需要有逆向思维。
+后序输出结果（左子 右子 根）---> 栈存（根 右子 左子）---> 出栈结果即得
+*/
+public List<Integer> postorderTraversal(TreeNode root) {
+    Stack<TreeNode> stack = new Stack<>();
+    // 后序遍历专用，存放结果集
+    Stack<TreeNode> output = new Stack<>();
+    List<Integer> ret = new ArrayList<>();
+    TreeNode curNode = root;
+    while (curNode != null || !stack.isEmpty()) {
+        while (curNode != null) {
+            stack.push(curNode);
+            // 添加到输出集合
+            output.push(curNode);
+            // 迭代访问右孩子
+            curNode = curNode.right;
+        }
+        // 访问左孩子
+        curNode = stack.pop();
+        curNode = curNode.left;
+    }
+    // 后序遍历专用
+    while (!output.isEmpty()) {
+        ret.add(output.pop().val);
+    }
+    return ret;
+}
+```
+
+#### 广度优先
+
+```java
+ void bfs(TreeNode root){
+     Queue<TreeNode> queue = new LinkedList<>();
+     // 把根节点入队列
+     queue.offer(root);
+     while (!queue.isEmpty()){//不能用!=null来判断
+         //1、把当前节点移除队列，输出内容
+         TreeNode cur = queue.poll();
+         System.out.println(cur.data);
+         //2、若存在左孩子，就将其加入队列
+         if(cur.left != null){
+             queue.offer(cur.left);
+         }
+         //3、若存在右孩子，就将其加入队列
+         if(cur.right != null){
+             queue.offer(cur.right);
+         }
+     }
+ }
+```
+
+
+
+
+
+
+
 ### [107. 二叉树的层次遍历 II](https://leetcode-cn.com/problems/binary-tree-level-order-traversal-ii/)
 
 ###### label：树高度、层次遍历
