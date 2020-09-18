@@ -1,4 +1,4 @@
-#### 前言
+
 
 > 设计模式最重要的是**解耦**，学习过程主要学习设计模式是如何**总结经验并将经验为自己所用**，同时锻炼将业务需求转换技术实现的一种有效方式。
 
@@ -802,7 +802,7 @@ final boolean acquireQueued(final Node node, int arg) {
 
 **阻塞队列变化情况：**
 
-![线程添加到阻塞队列过程](.\images\线程添加到阻塞队列过程.png)
+![线程添加到阻塞队列过程](.\images\14.线程添加到阻塞队列过程.png)
 
 
 
@@ -903,11 +903,11 @@ protected final boolean tryAcquire(int acquires) {
 
 **阻塞队列变化情况：**
 
-![释放锁时线程自旋过程](.\images\释放锁时线程自旋过程.png)
+![释放锁时线程自旋过程](.\images\15.释放锁时线程自旋过程.png)
 
 **抢占释放锁整体过程：**
 
-![抢占释放锁整体过程](.\images\抢占释放锁整体过程.png)
+![抢占释放锁整体过程](.\images\16.抢占释放锁整体过程.png)
 
 ##### **锁的公平性：**
 
@@ -1123,7 +1123,7 @@ public class Producer implements Runnable {
 }
 ```
 
-消费者
+**消费者**
 
 ```java
 public class Consumer implements Runnable {
@@ -1314,23 +1314,97 @@ final boolean transferForSignal(Node node) {
   Node p = enq(node); // 传输到同步队列，返回的node的上个节点
   int ws = p.waitStatus;
   // 【注意：性能优化的点】
-  // 若node上个节点线程是取消状态，取消状态的线程在同步队列中需要移除掉，而在调用unlock时是先移除取消状态的节点再唤醒头节点的下个线程，移除过程需要遍历(耗时)，这儿直接唤醒node的线程，如果node位于头节点的下个节点，那么node线程就可以直接抢占到锁；如果不是头节点的下个线程就继续阻塞。
+  // 若node前驱节点线程是取消状态，取消状态的线程在同步队列中需要移除掉，而在调用unlock时是先移除取消状态的节点再唤醒头节点的下个线程，移除过程需要遍历(耗时)，这儿直接唤醒node的线程，如果node位于头节点的下个节点，那么node线程就可以直接抢占到锁；如果不是头节点的下个线程就继续阻塞。
   if (ws > 0 || !compareAndSetWaitStatus(p, ws, Node.SIGNAL))
     LockSupport.unpark(node.thread);
   return true;
 }
 ```
 
+##### 图解
 
+![17.condition过程](.\images\17.condition过程.png)
+
+
+
+##### 应用场景
+
+> 该工具是并发包中实现其他并发工具的基础，比如阻塞队列的实现就需要基于condition来进行条件控制。
+
+#### **阻塞队列**
 
 > 阻塞队列（XXBlockingQueue、XXBlockingDeque）：当生队列中消息长度大于设定的最大长度时就阻塞生产者，当队列长度为零时就阻塞消费者。
+
+**主要方法**
+
+> - add()->如果队列满了，则报错
+> - offer()->会返回添加元素成功的状态
+> - put() ->阻塞式的添加数据
+
+##### 思考实现（设计思维）
+
+> 实例化阻塞队列时指定队列固定的容量，并实例化一个锁以及初始化线程条件控制的condition，分别是当线程个数达到最大容量时就不能继续添加了，让当前线程等待并通知从队列取数据的线程。
 >
 
-应用场景
+> 官方实现中，用到了两个条件控制，一个控制put的线程们，满了就让它等；一个控制take的线程们，空了就让他们等。
 
-阻塞队列，阻塞队列的实现是基于Condition条件控制的。
+##### 源码分析
+
+```java
+// =================放元素====================
+public void put(E e) throws InterruptedException {
+    checkNotNull(e);
+    final ReentrantLock lock = this.lock;
+    lock.lockInterruptibly();
+    try {
+        while (count == items.length)
+            notFull.await();
+        enqueue(e);
+    } finally {
+        lock.unlock();
+    }
+}
+private void enqueue(E x) {
+    // assert lock.getHoldCount() == 1;
+    // assert items[putIndex] == null;
+    final Object[] items = this.items;
+    items[putIndex] = x;
+    if (++putIndex == items.length)
+        putIndex = 0;
+    count++;
+    notEmpty.signal();
+}
 
 
+// =================取元素====================
+public E take() throws InterruptedException {
+    final ReentrantLock lock = this.lock;
+    lock.lockInterruptibly();
+    try {
+        while (count == 0)// 队列中没有元素时就让当前线程等待（阻塞）
+            notEmpty.await();
+        return dequeue();// 将队列中的元素取出
+    } finally {
+        lock.unlock();
+    }
+}
+
+private E dequeue() {
+    // assert lock.getHoldCount() == 1;
+    // assert items[takeIndex] != null;
+    final Object[] items = this.items;
+    @SuppressWarnings("unchecked")
+    E x = (E) items[takeIndex];// 取元素
+    items[takeIndex] = null;
+    if (++takeIndex == items.length)
+        takeIndex = 0;
+    count--;
+    if (itrs != null)
+        itrs.elementDequeued();
+    notFull.signal();// 通知放元素的线程
+    return x;
+}
+```
 
 
 
@@ -1341,8 +1415,6 @@ final boolean transferForSignal(Node node) {
 
 
 
-
-###### 被阻塞后的线程唤醒逻辑
 
 
 
@@ -1522,4 +1594,515 @@ private void doReleaseShared() {
 ##### Automic原子操作（安全性）
 
 > 底层使用cas实现
+
+
+
+### ConcurrentHashMap源码分析
+
+hash函数：MD5、SHA
+
+> 源码分为5个阶段解读
+
+#### JDk1.7与1.8变化
+
+
+
+#### put()第一阶段（初始化）
+
+> keys:
+>
+> 1. initTable:防止多个线程初始化，用cas保证线程安全性
+> 2. tabAt:等价于单线程下的tabl[i]，但要保证可见性，用getObjectVolatile直接取内存中取值，虽然**table数组本身加了volatile修饰，但这个只针对修改数组引用可见**，而不是数组中的元素。
+> 3. casTabAt:通过cas操作将put进来的值封装在Node中放在tab对应位置
+
+```java
+// putVal 初始化部分
+if (key == null || value == null) throw new NullPointerException();
+int hash = spread(key.hashCode()); // 计算hash值
+int binCount = 0;
+for (Node<K,V>[] tab = table;;) {
+    Node<K,V> f; int n, i, fh;
+    if (tab == null || (n = tab.length) == 0)
+        tab = initTable(); // 初始化table
+    else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {// 计算位置下标，当前下标位置无节点时，通过cas操作给该下标位置设置上当前键值对的节点（此时没占有锁，需要cas操作）
+        if (casTabAt(tab, i, null,
+                     new Node<K,V>(hash, key, value, null)))
+            break;                   // no lock when adding to empty bin
+    }
+//    ……
+}
+
+// initTable
+private final Node<K,V>[] initTable() {
+    Node<K,V>[] tab; int sc;
+    while ((tab = table) == null || tab.length == 0) {// 可能多个线程同时初始化，用cas操作保证线程安全性
+        if ((sc = sizeCtl) < 0)// 表示已经有线程已经初始化了或者正在初始化（下面竞争时通过cas操作将该值设置为-1），则不去竞争了，减少线程竞争带来的开销。
+            // sizeCtl是数组初始化或扩容是用的控制标识位，负数代表正在进行初始化或扩容操作。-1：正在初始化、-N：有N-1个线程正在进行扩容操作、0：数组还未初始化、正数：初始化或下一次扩容的大小
+            Thread.yield(); // lost initialization race; just spin
+        else if (U.compareAndSwapInt(this, SIZECTL, sc, -1)) {// cas操作，只会有一个线程进入下面逻辑，就能够保证初始化部分只有一个线程能操作，从而保证线程安全性	
+            try {
+                if ((tab = table) == null || tab.length == 0) {
+                    int n = (sc > 0) ? sc : DEFAULT_CAPACITY;
+                    @SuppressWarnings("unchecked")
+                    Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n];
+                    table = tab = nt;
+                    sc = n - (n >>> 2); // 计算下次扩容的大小，实际上就是当前容量的0.75倍，这儿用右移计算
+                }
+            } finally {
+                sizeCtl = sc;
+            }
+            break;
+        }
+    }
+    return tab;
+}
+```
+
+
+
+
+
+```java
+// putVal完整
+final V putVal(K key, V value, boolean onlyIfAbsent) {
+    if (key == null || value == null) throw new NullPointerException();
+    int hash = spread(key.hashCode()); // 计算hash值
+    int binCount = 0; // 记录链表长度
+    for (Node<K,V>[] tab = table;;) { // 自旋，线程竞争时不断自旋
+        Node<K,V> f; int n, i, fh;
+        if (tab == null || (n = tab.length) == 0)
+            tab = initTable(); // 初始化数组
+        // 通过hash值取到对应数组下标，tab在自旋过程读取table(volatile修饰)
+        else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
+            // 该下标节点为空，则cas操作插入新node，若cas失败则说明存在竞争，下次循环自旋
+            if (casTabAt(tab, i, null,
+                         new Node<K,V>(hash, key, value, null)))
+                break;                   // no lock when adding to empty bin
+        }
+        else if ((fh = f.hash) == MOVED)
+            tab = helpTransfer(tab, f);
+        else {
+            V oldVal = null;
+            synchronized (f) { // 给当前数组下标对应的node节点加锁
+                if (tabAt(tab, i) == f) {
+                    if (fh >= 0) {
+                        binCount = 1;
+                        for (Node<K,V> e = f;; ++binCount) {
+                            K ek;
+                            if (e.hash == hash &&
+                                ((ek = e.key) == key ||
+                                 (ek != null && key.equals(ek)))) {// 覆盖旧值
+                                oldVal = e.val;
+                                if (!onlyIfAbsent)
+                                    e.val = value;
+                                break;
+                            }
+                            Node<K,V> pred = e;
+                            if ((e = e.next) == null) {// 链式散列，hash冲突
+                                pred.next = new Node<K,V>(hash, key,
+                                                          value, null);
+                                break;
+                            }
+                        }
+                    }
+                    else if (f instanceof TreeBin) {
+                        Node<K,V> p;
+                        binCount = 2;
+                        if ((p = ((TreeBin<K,V>)f).putTreeVal(hash, key,
+                                                              value)) != null) {
+                            oldVal = p.val;
+                            if (!onlyIfAbsent)
+                                p.val = value;
+                        }
+                    }
+                }
+            }
+            if (binCount != 0) {
+                if (binCount >= TREEIFY_THRESHOLD)
+                    treeifyBin(tab, i);
+                if (oldVal != null)
+                    return oldVal;
+                break;
+            }
+        }
+    }
+    addCount(1L, binCount);
+    return null;
+}
+```
+
+
+
+
+
+
+
+##### 附
+
+> 源码中经常有将全局变量赋值给局部变量，再操作局部变量，操作完后再赋值给全局变量，这是一种性能优化的方式，从JVM层面理解。操作本方法中的变量比操作全局变量性能高
+
+
+
+#### transfer扩容阶段
+
+
+
+
+
+#### 数据迁移阶段
+
+
+
+#### put()第二阶段（元素个数统计和更新）
+
+> 更新元素，是否是线程并发的更新，并发更新一个共享变量的值，如何保证性能好安全？
+
+##### addCount()添加元素个数（初始化阶段）
+
+> 常规化是用乐观锁不断的自旋修改，但是在线程竞争特别激烈的情况，失败率很高，开销就非常大，所以引入了通过CounterCell[]中取value，再去cas修改，相当于增加了乐观锁的个数，每个counterCell中存储其他线程添加了元素的计数，最后**baseCount + (counterCells中每个CounterCell的value之和) = sum**。（非常重要的分片思想：线程竞争太大导致一个乐观锁不够用(失败率高，开销大)，于是引入CounterCell多加几个乐观锁，最后统计时把原本的数量和其他乐观锁中统计的数量相加即可）
+
+```java
+private transient volatile long baseCount;// 没有竞争的情况下，通过cas操作更新元素个数
+private transient volatile CounterCell[] counterCells;// 竞争情况下，存储元素个数
+// baseCount + (遍历counterCells每个CounterCell中的value) = sum
+private final void addCount(long x, int check) {
+    CounterCell[] as; long b, s;
+    // counterCells不为空、在baseCount上cas修改失败(此时counterCells为空)均表示竞争较激烈，就记录在CounterCell中
+    if ((as = counterCells) != null ||
+        !U.compareAndSwapLong(this, BASECOUNT, b = baseCount, s = b + x)) {
+        CounterCell a; long v; int m;
+        boolean uncontended = true;// 是否冲突标识，默认没有冲突
+        /*
+        1.计数表为空，直接调用fullAddCount
+        2.从计数表中随机取出一个数组的位置为空，直接调用fullAddCount
+        3.通过cas修改CounterCell随机位置的值，若修改失败则调用fullAddCount
+        Random在线程并发时可能出现相同随机数，用ThreadLocalRandom.getProbe()适用于并发情况生成随机数，且效率比Random高
+        */
+        if (as == null || (m = as.length - 1) < 0 ||
+            (a = as[ThreadLocalRandom.getProbe() & m]) == null || // 随机选择一个CounterCell
+            !(uncontended =
+              U.compareAndSwapLong(a, CELLVALUE, v = a.value, v + x))) {
+            fullAddCount(x, uncontended);
+            return;
+        }
+        if (check <= 1)// 链表长度小于1，不需扩容
+            return;
+        s = sumCount();// 统计元素个数
+    }
+    if (check >= 0) {
+        Node<K,V>[] tab, nt; int n, sc;
+        while (s >= (long)(sc = sizeCtl) && (tab = table) != null &&
+               (n = tab.length) < MAXIMUM_CAPACITY) {
+            int rs = resizeStamp(n);
+            if (sc < 0) {
+                if ((sc >>> RESIZE_STAMP_SHIFT) != rs || sc == rs + 1 ||
+                    sc == rs + MAX_RESIZERS || (nt = nextTable) == null ||
+                    transferIndex <= 0)
+                    break;
+                if (U.compareAndSwapInt(this, SIZECTL, sc, sc + 1))
+                    transfer(tab, nt);
+            }
+            else if (U.compareAndSwapInt(this, SIZECTL, sc,
+                                         (rs << RESIZE_STAMP_SHIFT) + 2))
+                transfer(tab, null);
+            s = sumCount();
+        }
+    }
+}
+```
+
+##### fullAddCount
+
+> 初始化CounterCell，扩容、初始化等操作
+
+```java
+private final void fullAddCount(long x, boolean wasUncontended) {
+    int h;
+    // 获取当前线程的probe(随机数)的值，若值为0则初始化当前线程的probe的值
+    if ((h = ThreadLocalRandom.getProbe()) == 0) {
+        ThreadLocalRandom.localInit();      // force initialization
+        h = ThreadLocalRandom.getProbe();
+        wasUncontended = true; // 重新生成了probe，未冲突标志位设置为true
+    }
+    boolean collide = false;                // True if last slot nonempty
+    for (;;) {
+        CounterCell[] as; CounterCell a; int n; long v;
+        // 
+        if ((as = counterCells) != null && (n = as.length) > 0) {
+            if ((a = as[(n - 1) & h]) == null) {
+                // cellsBusy=0表示counterCells不在初始化或扩容状态下
+                if (cellsBusy == 0) {            // Try to attach new Cell
+                    CounterCell r = new CounterCell(x); // Optimistic create
+                    if (cellsBusy == 0 &&
+                        //通过cas设置cellBusy标识，防止其他线程来对counterCells并发处理
+                        U.compareAndSwapInt(this, CELLSBUSY, 0, 1)) {
+                        boolean created = false;
+                        try {               // Recheck under lock
+                            CounterCell[] rs; int m, j;
+                            if ((rs = counterCells) != null &&
+                                (m = rs.length) > 0 &&
+                                rs[j = (m - 1) & h] == null) {
+                                rs[j] = r;
+                                created = true;
+                            }
+                        } finally {// 恢复标志位
+                            cellsBusy = 0;
+                        }
+                        if (created)// 创建成功，退出循环
+                            break;
+                        // 说明指定cells下标位置的数据不为空，则进行下次循环(自旋)
+                        continue;           // Slot is now non-empty
+                    }
+                }
+                collide = false;
+            }
+            // 说明在addCount()中cas失败了，并且获得probe的值不为空
+            else if (!wasUncontended)       // CAS already known to fail
+                wasUncontended = true;      // Continue after rehash
+            // 由于指定下班位置的cell值不为空，则直接通过cas进行原子累加，若成功则直接退出
+            else if (U.compareAndSwapLong(a, CELLVALUE, v = a.value, v + x))
+                break;
+            // 若已有其他线程建立了新的counterCells或counterCells大于CPU核心数（很巧妙，线程的并发数不会超过CPU核心数）
+            else if (counterCells != as || n >= NCPU)
+                // 设置当前线程的循环失败不进行扩容
+                collide = false;            // At max size or stale
+            else if (!collide)
+                collide = true;
+            // 进入这个步骤说明CounterCell数组容量不够，线程竞争较大，所以先设置一个标识表示正在扩容
+            else if (cellsBusy == 0 &&
+                     U.compareAndSwapInt(this, CELLSBUSY, 0, 1)) {
+                try {
+                    if (counterCells == as) {// Expand table unless stale
+                        // 扩容1倍
+                        CounterCell[] rs = new CounterCell[n << 1];
+                        for (int i = 0; i < n; ++i)
+                            rs[i] = as[i];
+                        counterCells = rs;
+                    }
+                } finally {
+                    cellsBusy = 0;// 恢复标识
+                }
+                collide = false;
+                continue;                   // Retry with expanded table
+            }
+            h = ThreadLocalRandom.advanceProbe(h);// 更新随机数的值
+        }
+        // cellsBusy == 0表示没有初始化，cas更新它标识正在初始化
+        else if (cellsBusy == 0 && counterCells == as &&
+                 U.compareAndSwapInt(this, CELLSBUSY, 0, 1)) {
+            boolean init = false;
+            try {                           // Initialize table
+                if (counterCells == as) {
+                    CounterCell[] rs = new CounterCell[2];// 初始化容量为2
+                    rs[h & 1] = new CounterCell(x);// 将元素的个数放在指定的下标位置
+                    counterCells = rs;
+                    init = true; // 设置初始化完成标识
+                }
+            } finally {
+                cellsBusy = 0; // 恢复标识
+            }
+            if (init)
+                break;
+        }
+        // 竞争激烈，其他线程占据cell数组，直接累加在baseCount中（优化方式）
+        else if (U.compareAndSwapLong(this, BASECOUNT, v = baseCount, v + x))
+            break;                          // Fall back on using base
+    }
+}
+```
+
+#### put()第三阶段（个数统计与更新）
+
+
+
+
+
+
+
+#### put()第四阶段
+
+
+
+
+
+
+
+
+
+
+
+## 题
+
+### 综合类
+
+#### 三线程循环输出ABC
+
+**题目**
+
+> 有A、B、C 三个线程，A线程 输出“A”，B线程 输出“B”，C线程 输出“C”，要求同时启动3个线程，按照顺序输出“ABC”，循环10次，请使用代码实现。
+
+**分析**
+
+> 该题关键在于控制线程输出顺序，保持顺序要么用**计数器**（计数器累加，每个线程都有个数字标识(从0开始递增顺序0:A 1:B)，比如n%3==0就轮到Thread-A输出，n%3==1就轮到Thread-B输出，以此类推随着n的累加就会依次输出想要的结果）；要么用**链式**方式保持顺序，每个线程记录下它的后继线程。
+>
+> 保证顺序的过程中还需要考虑多线程环境下**数据一致性**带来的问题，在使用计数器时保证多线程环境下数据一致就需要加锁，可以选择**synchronized锁类对象、或者Lock锁类对象，配合wait/notifyAll**使用。若不使用锁，使用**原子类计数**也可保证数据一致。
+
+##### 方法一
+
+> 基于原子类的计数器
+
+```java
+private static       AtomicInteger atomicCounter = new AtomicInteger(0);
+private static final int           MAX           = 30;
+
+void solution1() {
+    ExecutorService service = Executors.newFixedThreadPool(3);
+    service.execute(new MyRunnable(0, "A"));
+    service.execute(new MyRunnable(1, "B"));
+    service.execute(new MyRunnable(2, "C"));
+    service.shutdown();
+}
+
+class MyRunnable implements Runnable {
+    /**
+    * 标识ABC三个线程，0:A;   1:B;   2:C;
+    */
+    private int    flag;
+    private String value;
+
+    public MyRunnable(int flag, String value) {
+        this.flag = flag;
+        this.value = value;
+    }
+
+    @Override
+    public void run() {
+        while (atomicCounter.get() < MAX) {
+            // System.out.println("===" + Thread.currentThread().getName() + "===");
+            // 任由CPU怎么调度，反正只在输出结果这儿把握好就OK。用原子类变量就可以不用加锁操作
+            if (atomicCounter.get() % 3 == flag) {
+                System.out.println(value);
+                atomicCounter.incrementAndGet();
+            }
+        }
+    }
+}
+```
+
+##### 方法二
+
+> 普通计数器+lock锁类对象（用synchronized锁类对象的代码类似）
+
+```java
+void solution2() {
+    new MyThread(0, "A").start();
+    new MyThread(1, "B").start();
+    new MyThread(2, "C").start();
+}
+
+class MyThread extends Thread {
+    /**
+     * 多个线程实例共有（类变量），不用volatile修饰，操作该值时是加锁状态不存在多个线程同时修改
+     * 该变量累加，结合线程标识状态控制打印顺序
+     */
+    private static int       counter;
+    /**
+     * 标识ABC三个线程，0:A;   1:B;   2:C;
+     */
+    private        int       flag;
+    private        String    value;
+    /**
+     * 必须声明成类变量，需要加类级别的锁（这儿对象级别的锁在实例化线程时每个线程都会有个，显然锁不住）
+     */
+    private static Lock      lock      = new ReentrantLock();
+    private static Condition condition = lock.newCondition();
+
+    public MyThread(int flag, String value) {
+        this.flag = flag;
+        this.value = value;
+    }
+
+    @Override
+    public void run() {
+        for (int i = 0; i < 10; i++) {
+            // 1.加锁
+            lock.lock();
+            // 2.判断是否轮到当前线程，没有轮到则将其阻塞
+            while (counter % 3 != flag) {
+                try {
+                    condition.await();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            // 执行到这里，表明轮到当前线程了，输出结果
+            System.out.println(value);
+            counter++;
+            condition.signalAll();
+            lock.unlock();
+        }
+    }
+}
+```
+
+##### 方法三
+
+> 设置线程的后继线程+synchronized锁类对象
+
+```java
+private static MyLinkedThread headThread;
+private static MyLinkedThread nextThread;
+
+void solution3() {
+    // 设置线程间的链式关系
+    MyLinkedThread c = new MyLinkedThread("C");
+    MyLinkedThread b = new MyLinkedThread(c, "B");
+    MyLinkedThread a = new MyLinkedThread(b, "A");
+    // 初始化线程的头节点和下个节点（从a线程开始）
+    headThread = nextThread = a;
+    a.start();
+    b.start();
+    c.start();
+}
+
+class MyLinkedThread extends Thread {
+    /**
+    * 标识线程的后继线程
+    */
+    private MyLinkedThread next;
+    private String         value;
+
+    public MyLinkedThread(MyLinkedThread next, String value) {
+        this.next = next;
+        this.value = value;
+    }
+
+    public MyLinkedThread(String value) {
+        this.value = value;
+    }
+
+    @Override
+    public void run() {
+        for (int i = 0; i < 10; i++) {
+            synchronized (MyLinkedThread.class) {
+                // 当前顺序不应该当前线程执行，则将其阻塞
+                Thread currentThread = Thread.currentThread();
+                while (!currentThread.equals(nextThread)) {
+                    try {
+                        MyLinkedThread.class.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                // 执行到这里，表明满足条件，打印
+                System.out.println(value);
+                // 下个节点为空时，就指向头节点以构成循环
+                nextThread = next == null ? headThread : next;
+                // 调用notifyAll方法
+                MyLinkedThread.class.notifyAll();
+            }
+        }
+    }
+}
+```
 

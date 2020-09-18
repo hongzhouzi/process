@@ -1,9 +1,7 @@
 package cn.gp.concurrent;
 
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Semaphore;
+import java.util.Random;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.AbstractQueuedSynchronizer;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -15,7 +13,15 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class Tools {
     public static void main(String[] args) {
+        concurrentHashMapDemo();
+    }
 
+
+
+    static void concurrentHashMapDemo(){
+        ConcurrentHashMap<String,String> concurrentHashMap = new ConcurrentHashMap<>();
+        concurrentHashMap.put("a","a");
+        System.out.println(concurrentHashMap.get("a"));
     }
 
     static void conditionDemo(){
