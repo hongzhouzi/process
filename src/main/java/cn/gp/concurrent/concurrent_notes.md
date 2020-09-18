@@ -1646,7 +1646,7 @@ private final Node<K,V>[] initTable() {
                     @SuppressWarnings("unchecked")
                     Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n];
                     table = tab = nt;
-                    sc = n - (n >>> 2); // 计算下次扩容的大小，实际上就是当前容量的0.75倍，这儿用右移计算
+                    sc = n - (n >>> 2); // 计算下次扩容的阈值大小，实际上就是当前容量的0.75倍，这儿用(n - n无符号右移两位)计算
                 }
             } finally {
                 sizeCtl = sc;
@@ -1735,31 +1735,27 @@ final V putVal(K key, V value, boolean onlyIfAbsent) {
 
 
 
-
-
 ##### 附
 
 > 源码中经常有将全局变量赋值给局部变量，再操作局部变量，操作完后再赋值给全局变量，这是一种性能优化的方式，从JVM层面理解。操作本方法中的变量比操作全局变量性能高
 
 
 
-#### transfer扩容阶段
-
-
-
-
-
-#### 数据迁移阶段
-
 
 
 #### put()第二阶段（元素个数统计和更新）
 
-> 更新元素，是否是线程并发的更新，并发更新一个共享变量的值，如何保证性能好安全？
+> 思考：更新元素，是否是线程并发的更新，并发更新一个共享变量的值，如何保证性能好安全？
 
-##### addCount()添加元素个数（初始化阶段）
+##### addCount()添加元素个数
 
 > 常规化是用乐观锁不断的自旋修改，但是在线程竞争特别激烈的情况，失败率很高，开销就非常大，所以引入了通过CounterCell[]中取value，再去cas修改，相当于增加了乐观锁的个数，每个counterCell中存储其他线程添加了元素的计数，最后**baseCount + (counterCells中每个CounterCell的value之和) = sum**。（非常重要的分片思想：线程竞争太大导致一个乐观锁不够用(失败率高，开销大)，于是引入CounterCell多加几个乐观锁，最后统计时把原本的数量和其他乐观锁中统计的数量相加即可）
+>
+> keys：
+>
+> 1. 引入CounterCell统计数量，以解决竞争太激烈情况下用一个baseCount效率低问题
+> 2. fullAddCount:CounterCell数组的初始化和扩容
+> 3. 
 
 ```java
 private transient volatile long baseCount;// 没有竞争的情况下，通过cas操作更新元素个数
@@ -1804,16 +1800,35 @@ private final void addCount(long x, int check) {
             }
             else if (U.compareAndSwapInt(this, SIZECTL, sc,
                                          (rs << RESIZE_STAMP_SHIFT) + 2))
-                transfer(tab, null);
+                transfer(tab, null);// table扩容
             s = sumCount();
         }
     }
 }
+
+// 累加baseCount和counterCells中的value值
+final long sumCount() {
+    CounterCell[] as = counterCells; CounterCell a;
+    long sum = baseCount;
+    if (as != null) {
+        for (int i = 0; i < as.length; ++i) {
+            if ((a = as[i]) != null)
+                sum += a.value;
+        }
+    }
+    return sum;
+}
 ```
 
-##### fullAddCount
+###### fullAddCount（CounterCell数组的初始化和扩容）
 
-> 初始化CounterCell，扩容、初始化等操作
+> 初始化CounterCell，CounterCell扩容等操作。
+>
+> keys：
+>
+> 1. 与CounterCell相关操作需要用到取随机数，尽可能使之在多线程环境下较均匀落在CounterCell数组中
+> 2. 初始化大小为2，扩容时按2倍进行扩容
+> 3. 在初始化和扩容阶段需要cas操作，并设置一些标识位
 
 ```java
 private final void fullAddCount(long x, boolean wasUncontended) {
@@ -1873,7 +1888,7 @@ private final void fullAddCount(long x, boolean wasUncontended) {
                      U.compareAndSwapInt(this, CELLSBUSY, 0, 1)) {
                 try {
                     if (counterCells == as) {// Expand table unless stale
-                        // 扩容1倍
+                        // 【扩容1倍】
                         CounterCell[] rs = new CounterCell[n << 1];
                         for (int i = 0; i < n; ++i)
                             rs[i] = as[i];
@@ -1893,7 +1908,7 @@ private final void fullAddCount(long x, boolean wasUncontended) {
             boolean init = false;
             try {                           // Initialize table
                 if (counterCells == as) {
-                    CounterCell[] rs = new CounterCell[2];// 初始化容量为2
+                    CounterCell[] rs = new CounterCell[2];// 【初始化容量为2】
                     rs[h & 1] = new CounterCell(x);// 将元素的个数放在指定的下标位置
                     counterCells = rs;
                     init = true; // 设置初始化完成标识
@@ -1910,6 +1925,53 @@ private final void fullAddCount(long x, boolean wasUncontended) {
     }
 }
 ```
+
+###### transfer
+
+> table扩容，当更新后的键值对总数baseCount >= 阈值sizeCtl时，进行rehash。注意这儿有两种逻辑：
+>
+> 1. 当前没有扩容，直接触发扩容
+> 2. 当前正在扩容，当前线程则协助扩容
+
+```java
+// addCount()中后半段扩容相关代码
+if (check >= 0) {
+    Node<K,V>[] tab, nt; int n, sc;
+    // s:当前集合大小 sc:阈值*大小(阈值默认0.75)
+    while (s >= (long)(sc = sizeCtl) && (tab = table) != null &&
+           (n = tab.length) < MAXIMUM_CAPACITY) {
+        int rs = resizeStamp(n);// 生成唯一的扩容戳
+        if (sc < 0) {// sc<0，也就是 sizeCtl<0，说明已经有线程正在扩容了
+            // 下面5个条件有一个true则当前线程不能协助扩容，直接跳出循环
+            /*
+            1. 比较高 RESIZE_STAMP_BITS 位生成戳和 rs 是否相等，相同
+            2. sc == rs + 1：扩容结束
+            3. sc == rs + MAX_RESIZERS：协助线程已达最大值
+            4. (nt = nextTable) == null：扩容结束
+            5. 所有transfer任务都被领取完，没有剩余的hash桶给当前线程做扩容
+            */
+            if ((sc >>> RESIZE_STAMP_SHIFT) != rs || sc == rs + 1 ||
+                sc == rs + MAX_RESIZERS || (nt = nextTable) == null ||
+                transferIndex <= 0)
+                break;
+            // 准备协助扩容，状态更改成功则调用transfer开始协助扩容
+            if (U.compareAndSwapInt(this, SIZECTL, sc, sc + 1))
+                transfer(tab, nt);
+        }
+        // 
+        else if (U.compareAndSwapInt(this, SIZECTL, sc,
+                                     (rs << RESIZE_STAMP_SHIFT) + 2))
+            transfer(tab, null);
+        s = sumCount();
+    }
+}
+```
+
+
+
+
+
+
 
 #### put()第三阶段（个数统计与更新）
 
