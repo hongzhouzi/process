@@ -1614,6 +1614,13 @@ hash函数：MD5、SHA
 > 1. initTable:防止多个线程初始化，用cas保证线程安全性
 > 2. tabAt:等价于单线程下的tabl[i]，但要保证可见性，用getObjectVolatile直接取内存中取值，虽然**table数组本身加了volatile修饰，但这个只针对修改数组引用可见**，而不是数组中的元素。
 > 3. casTabAt:通过cas操作将put进来的值封装在Node中放在tab对应位置
+>
+> **sizeCtl**是数组初始化或扩容是用的控制标识位
+>
+> - 负数：正在进行初始化或扩容操作；
+> - -1：正在初始化、-N：有N-1个线程正在进行扩容操作；
+> - 0：数组还未初始化；
+> - 正数：初始化或下一次扩容的大小
 
 ```java
 // putVal 初始化部分
@@ -1745,7 +1752,7 @@ final V putVal(K key, V value, boolean onlyIfAbsent) {
 
 #### put()第二阶段（元素个数统计和更新）
 
-> 思考：更新元素，是否是线程并发的更新，并发更新一个共享变量的值，如何保证性能好安全？
+> 思考：更新元素，是否是线程并发的更新，并发更新一个共享变量的值，如何保证性能高、安全？
 
 ##### addCount()添加元素个数
 
@@ -1755,7 +1762,8 @@ final V putVal(K key, V value, boolean onlyIfAbsent) {
 >
 > 1. 引入CounterCell统计数量，以解决竞争太激烈情况下用一个baseCount效率低问题
 > 2. fullAddCount:CounterCell数组的初始化和扩容
-> 3. 
+> 3. sumCount:统计元素总个数，累加所有counterCells中的value和baseCount
+> 4. transfer:table扩容
 
 ```java
 private transient volatile long baseCount;// 没有竞争的情况下，通过cas操作更新元素个数
@@ -1926,12 +1934,25 @@ private final void fullAddCount(long x, boolean wasUncontended) {
 }
 ```
 
-###### transfer
+##### transfer
+
+> 扩容核心在于数据转移，多线程环境下可能有线程正在转移元素，其他线程又触发了扩容，这儿没有直接加互斥锁而是采用cas实现无锁的并发同步策略，最精华的地方在于可以用多线程来进行协同扩容。
+
+**实现思路：**
+
+> 把Node数组作为线程间共享的任务队列，通过维护一个指针来划分每个线程锁负责的区间（每个区间有若干个bucket），每个线程通过对区间内逆向遍历实现扩容。已经完成迁移的bucket被替换成ForwardingNode节点，标记当前bucket已完成迁移。
+
+
 
 > table扩容，当更新后的键值对总数baseCount >= 阈值sizeCtl时，进行rehash。注意这儿有两种逻辑：
 >
 > 1. 当前没有扩容，直接触发扩容
 > 2. 当前正在扩容，当前线程则协助扩容
+>
+> keys：
+>
+> 	1. resizeStamp:生成唯一的扩容戳
+>  	2. transfer:扩容
 
 ```java
 // addCount()中后半段扩容相关代码
@@ -1941,6 +1962,13 @@ if (check >= 0) {
     while (s >= (long)(sc = sizeCtl) && (tab = table) != null &&
            (n = tab.length) < MAXIMUM_CAPACITY) {
         int rs = resizeStamp(n);// 生成唯一的扩容戳
+        /*
+        sizeCtl是数组初始化或扩容是用的控制标识位
+         负数：正在进行初始化或扩容操作；
+         -1：正在初始化、-N：有N-1个线程正在进行扩容操作；
+         0：数组还未初始化；
+         正数：初始化或下一次扩容的大小
+        */
         if (sc < 0) {// sc<0，也就是 sizeCtl<0，说明已经有线程正在扩容了
             // 下面5个条件有一个true则当前线程不能协助扩容，直接跳出循环
             /*
@@ -1958,7 +1986,7 @@ if (check >= 0) {
             if (U.compareAndSwapInt(this, SIZECTL, sc, sc + 1))
                 transfer(tab, nt);
         }
-        // 
+        // ？？？+2
         else if (U.compareAndSwapInt(this, SIZECTL, sc,
                                      (rs << RESIZE_STAMP_SHIFT) + 2))
             transfer(tab, null);
@@ -1969,13 +1997,199 @@ if (check >= 0) {
 
 
 
+```java
+// 生成唯一的扩容戳
+// n:table的长度
+private static int RESIZE_STAMP_BITS = 16;
+static final int resizeStamp(int n) {
+    return Integer.numberOfLeadingZeros(n) | (1 << (RESIZE_STAMP_BITS - 1));
+}
+```
 
 
 
 
-#### put()第三阶段（个数统计与更新）
+
+```java
+// 扩容
+/*
+fwd:指向新表的标识，其他线程会主动跳过它，它里面的元素要么是正在进行扩容迁移、要么是已完成扩容迁移，也就是它保证线程安全再进行操作。
+advance：标识是否在推进处理中，当前bucket处理完，正在处理下个bucket的标识。
+finishing：标识扩容是否结束
+*/
+private final void transfer(Node<K,V>[] tab, Node<K,V>[] nextTab) {
+    int n = tab.length, stride;
+    // CPU核心数大于1时（(n>>>3)/CPU核心数，结果小于16就使用16）
+    /*
+    目的：让CPU处理的bucket一样多，避免出现任务分配不均匀。下限：桶较少时默认一个CPU处理16个桶，即长度为16时只有1个线程来扩容。
+    */
+    if ((stride = (NCPU > 1) ? (n >>> 3) / NCPU : n) < MIN_TRANSFER_STRIDE)
+        stride = MIN_TRANSFER_STRIDE; // subdivide range
+    // nextTab未初始化时（不为空时是正在扩容过程其他线程进入扩容）
+    if (nextTab == null) {            // initiating
+        try {
+            @SuppressWarnings("unchecked")
+            // 大小扩容为原来的2倍
+            Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n << 1];
+            nextTab = nt;
+        } catch (Throwable ex) {      // try to cope with OOME
+            sizeCtl = Integer.MAX_VALUE;
+            return;
+        }
+        nextTable = nextTab;
+        transferIndex = n;
+    }
+    int nextn = nextTab.length;
+    ForwardingNode<K,V> fwd = new ForwardingNode<K,V>(nextTab);
+    boolean advance = true;
+    boolean finishing = false; // to ensure sweep before committing nextTab
+    for (int i = 0, bound = 0;;) {
+        Node<K,V> f; int fh;
+        while (advance) {
+            int nextIndex, nextBound;
+            if (--i >= bound || finishing)
+                advance = false;
+            else if ((nextIndex = transferIndex) <= 0) {
+                i = -1;
+                advance = false;
+            }
+            else if (U.compareAndSwapInt
+                     (this, TRANSFERINDEX, nextIndex,
+                      nextBound = (nextIndex > stride ?
+                                   nextIndex - stride : 0))) {
+                bound = nextBound;
+                i = nextIndex - 1;
+                advance = false;
+            }
+        }
+        if (i < 0 || i >= n || i + n >= nextn) {
+            int sc;
+            if (finishing) {
+                nextTable = null;
+                table = nextTab;
+                sizeCtl = (n << 1) - (n >>> 1);
+                return;
+            }
+            if (U.compareAndSwapInt(this, SIZECTL, sc = sizeCtl, sc - 1)) {
+                if ((sc - 2) != resizeStamp(n) << RESIZE_STAMP_SHIFT)
+                    return;
+                finishing = advance = true;
+                i = n; // recheck before commit
+            }
+        }
+        else if ((f = tabAt(tab, i)) == null)
+            advance = casTabAt(tab, i, null, fwd);
+        else if ((fh = f.hash) == MOVED)
+            advance = true; // already processed
+        else {
+            synchronized (f) {
+                if (tabAt(tab, i) == f) {
+                    Node<K,V> ln, hn;
+                    if (fh >= 0) {
+                        int runBit = fh & n;
+                        Node<K,V> lastRun = f;
+                        for (Node<K,V> p = f.next; p != null; p = p.next) {
+                            int b = p.hash & n;
+                            if (b != runBit) {
+                                runBit = b;
+                                lastRun = p;
+                            }
+                        }
+                        if (runBit == 0) {
+                            ln = lastRun;
+                            hn = null;
+                        }
+                        else {
+                            hn = lastRun;
+                            ln = null;
+                        }
+                        for (Node<K,V> p = f; p != lastRun; p = p.next) {
+                            int ph = p.hash; K pk = p.key; V pv = p.val;
+                            if ((ph & n) == 0)
+                                ln = new Node<K,V>(ph, pk, pv, ln);
+                            else
+                                hn = new Node<K,V>(ph, pk, pv, hn);
+                        }
+                        setTabAt(nextTab, i, ln);
+                        setTabAt(nextTab, i + n, hn);
+                        setTabAt(tab, i, fwd);
+                        advance = true;
+                    }
+                    else if (f instanceof TreeBin) {
+                        TreeBin<K,V> t = (TreeBin<K,V>)f;
+                        TreeNode<K,V> lo = null, loTail = null;
+                        TreeNode<K,V> hi = null, hiTail = null;
+                        int lc = 0, hc = 0;
+                        for (Node<K,V> e = t.first; e != null; e = e.next) {
+                            int h = e.hash;
+                            TreeNode<K,V> p = new TreeNode<K,V>
+                                (h, e.key, e.val, null, null);
+                            if ((h & n) == 0) {
+                                if ((p.prev = loTail) == null)
+                                    lo = p;
+                                else
+                                    loTail.next = p;
+                                loTail = p;
+                                ++lc;
+                            }
+                            else {
+                                if ((p.prev = hiTail) == null)
+                                    hi = p;
+                                else
+                                    hiTail.next = p;
+                                hiTail = p;
+                                ++hc;
+                            }
+                        }
+                        ln = (lc <= UNTREEIFY_THRESHOLD) ? untreeify(lo) :
+                        (hc != 0) ? new TreeBin<K,V>(lo) : t;
+                        hn = (hc <= UNTREEIFY_THRESHOLD) ? untreeify(hi) :
+                        (lc != 0) ? new TreeBin<K,V>(hi) : t;
+                        setTabAt(nextTab, i, ln);
+                        setTabAt(nextTab, i + n, hn);
+                        setTabAt(tab, i, fwd);
+                        advance = true;
+                    }
+                }
+            }
+        }
+    }
+}
+```
 
 
+
+
+
+
+
+#### put()第三阶段（协助扩容）
+
+> aaa
+>
+
+```java
+
+final Node<K,V>[] helpTransfer(Node<K,V>[] tab, Node<K,V> f) {
+    Node<K,V>[] nextTab; int sc;
+    if (tab != null && (f instanceof ForwardingNode) &&
+        (nextTab = ((ForwardingNode<K,V>)f).nextTable) != null) {
+        int rs = resizeStamp(tab.length);
+        while (nextTab == nextTable && table == tab &&
+               (sc = sizeCtl) < 0) {
+            if ((sc >>> RESIZE_STAMP_SHIFT) != rs || sc == rs + 1 ||
+                sc == rs + MAX_RESIZERS || transferIndex <= 0)
+                break;
+            if (U.compareAndSwapInt(this, SIZECTL, sc, sc + 1)) {
+                transfer(tab, nextTab);
+                break;
+            }
+        }
+        return nextTab;
+    }
+    return table;
+}
+```
 
 
 
@@ -1988,6 +2202,266 @@ if (check >= 0) {
 
 
 
+
+## 线程池
+
+### 初识
+
+**由来**
+
+> **创建和销毁线程开销非常大**，且直接创建的线程**没办法管理**，若创建了太多的线程可能由于过度消耗资源而导致系统资源不足。
+>
+> 于是引入了线程池来解决这个问题，线程池主要是**线程复用**思想和**管理线程**，核心逻辑是：提前创建好若干个线程放在一个容器中（这个容器称为线程池），若有任务需要处理就直接分配给线程池中的空闲线程，任务执行完也不会销毁该线程，而是等待后续任务分配，这样就达到了对线程的复用和管理。
+
+**优势**
+
+> 1. **降低性能开销，**降低创建线程销毁线程的性能开销；
+> 2. **避免线程过度消耗资源**，管理线程时合理设置线程池大小可避免因线程数超过硬件资源瓶颈带来的问题；
+> 3. **提高响应速度**，当有新任务来时不需要等线程创建就可以让线程执行。
+
+
+
+### 线程池构建
+
+**设计**
+
+> 有任务就执行任务，没有任务就阻塞（节约资源），和生产者消费者模型类似，有任务来了就放入阻塞队列中（生产），线程池中的线程去阻塞队列中取出执行（消费）。
+>
+> 将run()方法放入阻塞队列，而不是start()，如果是start()那么就与线程池没有啥关系了，线程池中线程不能控制执行。
+
+
+
+> ctl变量：int 32位，高3位标识线程状态，低29位标识线程数
+
+
+
+线程池最核心的是ThreadPoolExecutor类，我们来看下构建线程池的参数。
+
+```java
+ThreadPoolExecutor(int corePoolSize,
+                              int maximumPoolSize,
+                              long keepAliveTime,
+                              TimeUnit unit,
+                              BlockingQueue<Runnable> workQueue,
+                              ThreadFactory threadFactory,
+                              RejectedExecutionHandler handler){}
+```
+
+> 1. corePoolSize：线程池核心线程个数；
+>
+> 2. miximumPoolSize：线程池最大线程数个数；
+>
+> 3. keepAliveTime：非核心线程空闲存活时间；
+>
+> 4. unit：线程存活时间单位；
+>
+> 5. workQueue：存放待处理任务的阻塞队列；
+>
+> 6. threadFactory：用于创建线程的工厂，可定义个有意义的名字方便排查问题；
+>
+> 7. handler：线程池拒绝策略。
+>
+>    打个比方：corePoolSize比作公司正式员工，miximumPoolSize比作正式员工+临时员工，	
+
+####  阻塞队列
+
+##### ArrayBlockingQueue
+
+> ArrayBlockingQueue（有界队列）是一个用 **数组** 实现的有界阻塞队列，按FIFO排序量。
+
+##### LinkedBlockingQueue
+
+> LinkedBlockingQueue（可设置容量队列）基于**链表**结构的阻塞队列，按FIFO排序任务，容量可以选择进行设置，不设置的话将是一个**无边界**的阻塞队列，最大长度为Integer.MAX_VALUE，吞吐量通常要高于ArrayBlockingQuene；newFixedThreadPool线程池使用了这个队列。
+
+##### DelayQueue
+
+> DelayQueue（延迟队列）是一个**任务定时周期的延迟执行**的队列。根据指定的执行时间从小到大排序，否则根据插入到队列的先后排序。newScheduledThreadPool线程池使用了这个队列。
+
+##### PriorityBlockingQueue
+
+> PriorityBlockingQueue（优先级队列）是具有优先级的无界阻塞队列；可根据任务自身的优先级顺序先后执行。
+
+##### SynchronousQueue
+
+> SynchronousQueue（同步队列，直接提交的队列）一个**不存储元素**的阻塞队列，每个插入操作必须等到另一个线程调用移除操作，否则插入操作一直处于阻塞状态，吞吐量通常要高于LinkedBlockingQuene，newCachedThreadPool线程池使用了这个队列。
+> 若使用的是该队列，则提交的任务不会被真实地保存，而总是将新任务提交给线程执行，若没有空闲的线程则创建新的线程，若线程数达到最大值则执行拒绝策略，因此使用该队列通常需要设置较大的maxmaximumPoolSize，否则很容易执行拒绝策略。
+
+#### 拒绝策略
+
+> 1. AbortPolicy(抛出一个异常，默认的)
+> 2. DiscardPolicy(直接丢弃任务)
+> 3. DiscardOldestPolicy（丢弃队列里最老的任务，将当前这个任务继续提交给线程池）
+> 4. CallerRunsPolicy（交给线程池调用所在的线程进行处理)
+
+
+
+### Java中提供的API
+
+#### Executors
+
+##### newFixedThreadPool
+
+> 返回一个固定数量的线程池，当有任务提交到线程池时若有线程空闲则立即执行，若没有空闲线程则被放在任务队列中等待执行。
+
+```java
+public static ExecutorService newFixedThreadPool(int nThreads, ThreadFactory threadFactory) {
+    return new ThreadPoolExecutor(nThreads, nThreads,
+                                  0L, TimeUnit.MILLISECONDS,
+                                  new LinkedBlockingQueue<Runnable>(),
+                                  threadFactory);
+}
+public static ExecutorService newFixedThreadPool(int nThreads) {
+    return new ThreadPoolExecutor(nThreads, nThreads,
+                                  0L, TimeUnit.MILLISECONDS,
+                                  new LinkedBlockingQueue<Runnable>());
+}
+```
+
+**特点**
+
+> 1. 核心线程数和最大线程数相等；（没有非核心线程）
+> 2. 阻塞队列为无界队列（注意：队列容量的无限加大可能导致OOM）
+
+**用途**
+
+> 用于负载比较大的服务器，为了资源的合理利用需要限制当前线程数量。
+
+---------
+
+
+
+##### newCachedThreadPool
+
+> 返回一个可根据实际情况调整线程个数的线程池，若有任务则创建线程执行任务（创建线程时不限制最大线程数量），若无任务则不创建线程，线程空闲60s后会自动回收。 
+
+```java
+public static ExecutorService newCachedThreadPool() {
+    return new ThreadPoolExecutor(0, Integer.MAX_VALUE,
+                                  60L, TimeUnit.SECONDS,
+                                  new SynchronousQueue<Runnable>());
+}
+public static ExecutorService newCachedThreadPool(ThreadFactory threadFactory) {
+    return new ThreadPoolExecutor(0, Integer.MAX_VALUE,
+                                  60L, TimeUnit.SECONDS,
+                                  new SynchronousQueue<Runnable>(),
+                                  threadFactory);
+}
+```
+
+**特点**
+
+> 1. 核心线程数为0，最大线程数为Integer.MAX_VALUE；
+> 2. 阻塞队列为SynchronousQueue（注意：队列容量的无限加大可能导致OOM）
+
+**用途**
+
+> ？？？
+
+---------
+
+
+
+##### newScheduledThreadPool
+
+> 返回一个指定线程数量的线程池，该线程池有延迟和周期性执行任务的功能，类似定时器。
+
+```java
+public static ScheduledExecutorService newScheduledThreadPool(int corePoolSize) {
+    return new ScheduledThreadPoolExecutor(corePoolSize);
+}
+public ScheduledThreadPoolExecutor(int corePoolSize) {
+    super(corePoolSize, Integer.MAX_VALUE, 0, NANOSECONDS,
+          new DelayedWorkQueue());
+}
+
+public static ScheduledExecutorService newScheduledThreadPool(
+    int corePoolSize, ThreadFactory threadFactory) {
+    return new ScheduledThreadPoolExecutor(corePoolSize, threadFactory);
+}
+public ScheduledThreadPoolExecutor(int corePoolSize,
+                                   ThreadFactory threadFactory) {
+    super(corePoolSize, Integer.MAX_VALUE, 0, NANOSECONDS,
+          new DelayedWorkQueue(), threadFactory);
+}
+```
+
+**特点**
+
+> 1. 可以延期执行
+
+**用途**
+
+> 一些中间件中用来做定时任务、心跳检测
+
+---------
+
+
+
+##### newSingleThreadExecutor
+
+> 创建单线程化的线程池，保证所有任务按照顺序（FIFO、LIFO、优先级）执行
+
+```java
+public static ExecutorService newSingleThreadExecutor() {
+    return new FinalizableDelegatedExecutorService
+        (new ThreadPoolExecutor(1, 1,
+                                0L, TimeUnit.MILLISECONDS,
+                                new LinkedBlockingQueue<Runnable>()));
+}
+```
+
+**特点**
+
+> 1. 
+
+**用途**
+
+> ？？？
+
+
+
+
+
+### 线程池原理分析
+
+
+
+
+
+
+
+### 使用注意事项
+
+##### 阿里开发手册不建议使用JDK提供的默认实现
+
+> 1. 阻塞队列为无界队列，当大量请求堆积到队列中时可能导致OOM
+> 2. 允许创建线程的数量为Integer.MAX_VALUE，可能会有大量线程创建出现CPU使用过高或OOM
+
+------
+
+
+
+##### 如何配置线程池大小
+
+> 
+
+----------------
+
+
+
+
+
+
+
+
+
+### Callable/Future使用及原理分析
+
+
+
+
+
+### 线程池对Callable/Future的执行
 
 
 
