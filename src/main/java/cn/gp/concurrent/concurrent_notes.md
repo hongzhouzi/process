@@ -2231,8 +2231,6 @@ final Node<K,V>[] helpTransfer(Node<K,V>[] tab, Node<K,V> f) {
 
 
 
-> ctl变量：int 32位，高3位标识线程状态，低29位标识线程数
-
 
 
 线程池最核心的是ThreadPoolExecutor类，我们来看下构建线程池的参数。
@@ -2424,9 +2422,264 @@ public static ExecutorService newSingleThreadExecutor() {
 
 ### 线程池原理分析
 
+> 线程池在构建时并没有初始化核心线程，根据添加的任务来启动核心线程
+
+```java
+public void execute(Runnable command) {
+        if (command == null)
+            throw new NullPointerException();
+        /*
+         * Proceed in 3 steps:
+         *
+         * 1. If fewer than corePoolSize threads are running, try to
+         * start a new thread with the given command as its first
+         * task.  The call to addWorker atomically checks runState and
+         * workerCount, and so prevents false alarms that would add
+         * threads when it shouldn't, by returning false.
+         *
+         * 2. If a task can be successfully queued, then we still need
+         * to double-check whether we should have added a thread
+         * (because existing ones died since last checking) or that
+         * the pool shut down since entry into this method. So we
+         * recheck state and if necessary roll back the enqueuing if
+         * stopped, or start a new thread if there are none.
+         *
+         * 3. If we cannot queue task, then we try to add a new
+         * thread.  If it fails, we know we are shut down or saturated
+         * and so reject the task.
+         */
+//      ctl：int有32位，高3位标识线程状态，低29位标识线程数（通过系列位运算）
+        int c = ctl.get();
+        if (workerCountOf(c) < corePoolSize) {
+            if (addWorker(command, true))
+                return;
+            c = ctl.get();
+        }
+        if (isRunning(c) && workQueue.offer(command)) {
+            int recheck = ctl.get();
+            if (! isRunning(recheck) && remove(command))
+                reject(command);
+            else if (workerCountOf(recheck) == 0)
+                addWorker(null, false);
+        }
+        else if (!addWorker(command, false))
+            reject(command);
+    }
+```
 
 
 
+addWorker
+
+> - 判断线程数是否超过阈值
+> - 构建线程并启动
+> - 统计当前工作线程数量，考虑线程安全性
+> - 存储的容器（HashSet<Worker>）
+
+```java
+
+private final HashSet<Worker> workers = new HashSet<Worker>();
+private boolean addWorker(Runnable firstTask, boolean core) {
+    retry:
+    for (;;) {
+        int c = ctl.get();
+        int rs = runStateOf(c);
+
+        // Check if queue empty only if necessary.
+        if (rs >= SHUTDOWN &&
+            ! (rs == SHUTDOWN &&
+               firstTask == null &&
+               ! workQueue.isEmpty()))
+            return false;
+
+        for (;;) {
+            int wc = workerCountOf(c);
+            if (wc >= CAPACITY ||
+                wc >= (core ? corePoolSize : maximumPoolSize))
+                return false;
+            if (compareAndIncrementWorkerCount(c))
+                break retry;
+            c = ctl.get();  // Re-read ctl
+            if (runStateOf(c) != rs)
+                continue retry;
+            // else CAS failed due to workerCount change; retry inner loop
+        }
+    }
+
+    boolean workerStarted = false;
+    boolean workerAdded = false;
+    Worker w = null;
+    try {
+        w = new Worker(firstTask); // 实例化worker
+        final Thread t = w.thread;
+        if (t != null) {
+            final ReentrantLock mainLock = this.mainLock;
+            mainLock.lock(); // 加锁保证安全性
+            try {
+                // Recheck while holding lock.
+                // Back out on ThreadFactory failure or if
+                // shut down before lock acquired.
+                int rs = runStateOf(ctl.get());
+
+                if (rs < SHUTDOWN ||
+                    (rs == SHUTDOWN && firstTask == null)) {
+                    if (t.isAlive()) // precheck that t is startable
+                        throw new IllegalThreadStateException();
+                    workers.add(w);// 添加到池中
+                    int s = workers.size();
+                    if (s > largestPoolSize)
+                        largestPoolSize = s;
+                    workerAdded = true;
+                }
+            } finally {
+                mainLock.unlock();
+            }
+            if (workerAdded) { // 添加成功之后启动线程
+                t.start(); // 启动之后就在ThreadPoolExecutor中的run方法执行
+                workerStarted = true;
+            }
+        }
+    } finally {
+        if (! workerStarted) // 操作失败需要回滚数据
+            addWorkerFailed(w);
+    }
+    return workerStarted;
+}
+
+public void run() {
+    runWorker(this);
+}
+```
+
+
+
+> 线程能够复用，主要就是在执行过程中去调用的run()，而不是start()，调start()必定对新开个线程，就做不到线程复用了。
+>
+> 在while循环中实现线程复用，一个线程启动后不断从阻塞队列中获取任务，然后调用该任务的run()以执行任务。只要while循环没有结束那么线程就不会终止，在销毁线程时就让while循环结束即可。
+
+```java
+final void runWorker(Worker w) {
+    Thread wt = Thread.currentThread();
+    Runnable task = w.firstTask;
+    w.firstTask = null;
+    w.unlock(); // allow interrupts
+    boolean completedAbruptly = true;
+    try {
+        // 线程回收时让getTask()的值为空即可
+        while (task != null || (task = getTask()) != null) {
+            w.lock();
+            // If pool is stopping, ensure thread is interrupted;
+            // if not, ensure thread is not interrupted.  This
+            // requires a recheck in second case to deal with
+            // shutdownNow race while clearing interrupt
+            if ((runStateAtLeast(ctl.get(), STOP) ||
+                 (Thread.interrupted() &&
+                  runStateAtLeast(ctl.get(), STOP))) &&
+                !wt.isInterrupted())
+                wt.interrupt();
+            try {
+                beforeExecute(wt, task);
+                Throwable thrown = null;
+                try {
+                    task.run(); // 拿到这个任务，执行该任务的run方法，注意是run()不是start()
+                } catch (RuntimeException x) {
+                    thrown = x; throw x;
+                } catch (Error x) {
+                    thrown = x; throw x;
+                } catch (Throwable x) {
+                    thrown = x; throw new Error(x);
+                } finally {
+                    afterExecute(task, thrown);
+                }
+            } finally {
+                task = null;
+                w.completedTasks++;
+                w.unlock();
+            }
+        }
+        completedAbruptly = false;
+    } finally {
+        processWorkerExit(w, completedAbruptly);
+    }
+}
+```
+
+
+
+```java
+private Runnable getTask() {
+    boolean timedOut = false; // Did the last poll() time out?
+
+    for (;;) {
+        int c = ctl.get();
+        int rs = runStateOf(c);
+
+        // Check if queue empty only if necessary.
+        if (rs >= SHUTDOWN && (rs >= STOP || workQueue.isEmpty())) {
+            decrementWorkerCount();
+            return null;
+        }
+
+        int wc = workerCountOf(c);
+
+        // Are workers subject to culling?
+        // 控制线程回收
+        boolean timed = allowCoreThreadTimeOut || wc > corePoolSize;
+
+        if ((wc > maximumPoolSize || (timed && timedOut))
+            && (wc > 1 || workQueue.isEmpty())) {
+            if (compareAndDecrementWorkerCount(c))
+                return null;
+            continue;
+        }
+
+        try {
+            Runnable r = timed ?
+                workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS) :
+            workQueue.take(); // take()是阻塞的
+            if (r != null)
+                return r;
+            timedOut = true;
+        } catch (InterruptedException retry) {
+            timedOut = false;
+        }
+    }
+}
+```
+
+
+
+> 核心线程和临时线程没有区分，只需要保证线程数量就行了，不用区分类型。
+
+
+
+线程怎么回收？
+
+> 让run()执行结束，线程就可以回收了
+
+
+
+
+
+### 线程池大小设定
+
+CPU密集型：
+
+> 需要CPU运算速率很高，完成依赖于CPU计算的线程，**利用的CPU资源非常的多**。
+>
+> 、说明CPU资源比较紧张，保持和CPU核心数量一致较合适，比如8核的CPU就设置8个线程。
+
+IO密集型：
+
+> 更多是基于IO处理，基于IO的处理线程很多的时候CPU处于等待状态，说明利用的CPU资源不会那么多。零**零散散利用CPU**。
+>
+> 说明消耗在IO处理上比较多，CPU资源就比较宽裕。多设置一些线程能提高CPU利用率，核心数*2合适。
+
+线程池设定的等待时间 + 线程CPU时间 / 
+
+
+
+实现线程池的一些监控，可以继承ThreadPoolExecutor，然后重写里面的prestartCoreThread等方法可以把线程数据上报到监控平台。
 
 
 
@@ -2456,6 +2709,69 @@ public static ExecutorService newSingleThreadExecutor() {
 
 
 ### Callable/Future使用及原理分析
+
+
+
+> Callable/Future与Thread比较最大的差异在于能够很方便的获取线程执行完后的结果。
+>
+> 什么时候需要回调接口？因为线程时异步执行的，并不知道结果什么时候计算完成，所以它传递一个回调接口给计算线程，当计算完成时调用这个回调接口，收到回传的结果值。
+>
+> **应用场景**
+>
+> Dubbo的异步调用，消息中间件的异步通信等。
+
+
+
+#### FutureTask
+
+
+
+![FutureTask类图](.\images\FutureTask类图.png)
+
+> 它继承了Runnable和Future两个接口，Runnable是**执行任务**的接口相当于生产者，Future是**获取任务结果**以及取消任务等相当于消费者，所以实际上FutureTask类可以理解成一个生产者消费者模型的多线程操纵类。
+
+
+
+
+
+
+
+
+
+```java
+// 状态分析
+private volatile int state;
+/*
+ * 新建状态，还未运行
+ */
+private static final int NEW          = 0;
+/*
+ * 完成状态，但还有后序操作（如唤醒等待线程）
+ */
+private static final int COMPLETING   = 1;
+/*
+ * 完结状态，正常完成，没有发生异常
+ */
+private static final int NORMAL       = 2;
+/*
+ * 完结状态，发生异常而完结
+ */
+private static final int EXCEPTIONAL  = 3;
+/*
+ * 完结状态，取消任务而完结
+ */
+private static final int CANCELLED    = 4;
+/*
+ * 完结状态，发起中断请求中断任务了而完结，
+ */
+private static final int INTERRUPTING = 5;
+/*
+ * 完结状态，完成了中断任务的中断请求而完结
+ */
+private static final int INTERRUPTED  = 6;
+```
+
+
 
 
 
