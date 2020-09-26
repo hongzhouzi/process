@@ -2423,9 +2423,10 @@ public static ExecutorService newSingleThreadExecutor() {
 
 ### 线程池原理分析
 
-> 线程池在构建时并没有初始化核心线程，根据添加的任务来启动核心线程
+![线程池整体理解](.\images\线程池整体理解.png)
 
 ```java
+private final AtomicInteger ctl = new AtomicInteger(ctlOf(RUNNING, 0));
 public void execute(Runnable command) {
         if (command == null)
             throw new NullPointerException();
@@ -2449,26 +2450,30 @@ public void execute(Runnable command) {
          * thread.  If it fails, we know we are shut down or saturated
          * and so reject the task.
          */
-//      ctl：int有32位，高3位标识线程状态，低29位标识线程数（通过系列位运算）
+//      ctl：原子类记录线程池状态和线程数量，int(32)高3位标识线程状态、低29位标识线程数（通过系列位运算）
         int c = ctl.get();
+	    // 1.线程池中线程数小于核心线程数则创建线程并把任务给该线程执行
         if (workerCountOf(c) < corePoolSize) {
             if (addWorker(command, true))
                 return;
             c = ctl.get();
         }
+	    // 2.核心线程已满，将任务添加到队列
         if (isRunning(c) && workQueue.offer(command)) {
-            int recheck = ctl.get();
+            int recheck = ctl.get(); // double-check
+            // 若线程池已没有运行了就将该任务从队列中移除，然后执行拒绝策略
             if (! isRunning(recheck) && remove(command))
                 reject(command);
             else if (workerCountOf(recheck) == 0)
                 addWorker(null, false);
         }
+    	// 3.若队列满了，创建临时线程，若创建失败（超过了最大线程数量）则执行拒绝策略
         else if (!addWorker(command, false))
             reject(command);
     }
 ```
 
-
+##### 创建线程并执行任务
 
 addWorker
 
@@ -2476,6 +2481,8 @@ addWorker
 > - 构建线程并启动
 > - 统计当前工作线程数量，考虑线程安全性
 > - 存储的容器（HashSet<Worker>）
+>
+> 注意：线程池在构建时并没有初始化核心线程，根据添加的任务来启动核心线程
 
 ```java
 
@@ -2552,7 +2559,7 @@ public void run() {
 }
 ```
 
-
+##### 线程复用与回收
 
 > **线程复用：**
 >
@@ -2562,7 +2569,7 @@ public void run() {
 >
 > 线程只要run()执行结束后该线程就即将被销毁，而线程池中的线程是在while循环中执行的run()，所以回收线程时就让while循环结束即可。
 >
-> 核心线程和临时线程没有区分，回收线程时只需要从数量上保证核心线程格式就行了。
+> 核心线程和临时线程没有区分，回收线程时只需要从数量上保证核心线程个数就行了。
 >
 > 
 >
@@ -2656,10 +2663,6 @@ private Runnable getTask() {
     }
 }
 ```
-
-
-
-
 
 
 
