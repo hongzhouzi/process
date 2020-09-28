@@ -2052,6 +2052,7 @@ public List<List<Integer>> levelOrderBottom(TreeNode root) {
     queue.offer(root);
     while (!queue.isEmpty()) {
         List<Integer> level = new ArrayList<>();
+        // 这儿的size就是当前同一深度的节点多少，在下面for循环遍历时就根据这个size取前size个就OK
         int size = queue.size();
         // 将当前层次的遍历完
         for (int i = 0; i < size; i++) {
@@ -2109,6 +2110,231 @@ void dfs(TreeNode root, List<List<Integer>> ret, int level) {
     dfs(root.right, ret, level + 1);
 }
 ```
+
+
+
+### [117. 填充每个节点的下一个右侧节点指针 II](https://leetcode-cn.com/problems/populating-next-right-pointers-in-each-node-ii/)
+
+###### label：层次遍历
+
+##### 描述
+
+> 难度中等
+>
+> 给定一个二叉树
+>
+> ```
+> struct Node {
+>   int val;
+>   Node *left;
+>   Node *right;
+>   Node *next;
+> }
+> ```
+>
+> 填充它的每个 next 指针，让这个指针指向其下一个右侧节点。如果找不到下一个右侧节点，则将 next 指针设置为 `NULL`。
+>
+> 初始状态下，所有 next 指针都被设置为 `NULL`。
+>
+>  
+>
+> **进阶：**
+>
+> - 你只能使用常量级额外空间。
+> - 使用递归解题也符合要求，本题中递归程序占用的栈空间不算做额外的空间复杂度。
+>
+>  
+>
+> **示例：**
+>
+> ![img](https://assets.leetcode-cn.com/aliyun-lc-upload/uploads/2019/02/15/117_sample.png)
+>
+> ```
+> 输入：root = [1,2,3,4,5,null,7]
+> 输出：[1,#,2,3,#,4,5,7,#]
+> 解释：给定二叉树如图 A 所示，你的函数应该填充它的每个 next 指针，以指向其下一个右侧节点，如图 B 所示。
+> ```
+>
+> **提示：**
+>
+> - 树中的节点数小于 `6000`
+> - `-100 <= node.val <= 100`
+
+#### 方法一 bfs
+
+##### 思路
+
+> 层次遍历时，将每层的节点相互串起来，同一层的节点数在while维护队列是否为空的循环内记录当前队列节点数就是同一层的节点数。然后在里面用for循环遍历当前层的节点。
+
+##### 复杂度分析
+
+> 时间复杂度：O(n)
+>
+> 空间复杂度：O(n)
+
+##### 代码
+
+```java
+public Node connect(Node root) {
+    if (root == null) {
+        return null;
+    }
+    Deque<Node> queue = new LinkedList<>();
+    queue.offer(root);
+    while (!queue.isEmpty()) {
+        // 这儿的size就是当前同一深度的节点多少，在下面for循环遍历时就根据这个size取前size个就OK
+        int size = queue.size();
+        Node prevNode = null;
+        // 循环该层次的node节点
+        for (int i = 0; i < size; i++) {
+            Node poll = queue.poll();
+            // 让前置节点指向当前节点，并将前置节点位置后移
+            if (i != 0) {
+                prevNode.next = poll;
+            }
+            prevNode = poll;
+
+            // 将左右子节点加入队列
+            if (poll.left != null) {
+                queue.offer(poll.left);
+            }
+            if (poll.right != null) {
+                queue.offer(poll.right);
+            }
+        }
+        // 遍历结束将最后节点指向null
+        prevNode.next = null;
+    }
+    return root;
+}
+
+// 换种写法，用指向下一个节点时通过 peek 取
+public Node connect(Node root) {
+    if (root == null) {
+        return null;
+    }
+    Deque<Node> queue = new LinkedList<>();
+    queue.offer(root);
+    while (!queue.isEmpty()) {
+        int size = queue.size();
+        // 循环该层次的node节点
+        for (int i = 0; i < size; i++) {
+            Node poll = queue.poll();
+            // 让前置节点指向当前节点，并将前置节点位置后移
+            if (i < size -1) {
+                poll.next = queue.peek();
+            }
+            // 将左右子节点加入队列
+            if (poll.left != null) {
+                queue.offer(poll.left);
+            }
+            if (poll.right != null) {
+                queue.offer(poll.right);
+            }
+        }
+    }
+    return root;
+}
+```
+
+#### 方法二 dfs
+
+##### 思路
+
+> 
+
+##### 复杂度分析
+
+> 时间复杂度：O(n)
+>
+> 空间复杂度：O(n)
+
+##### 代码
+
+```java
+ArrayList<Node> pres = new ArrayList<>();
+
+public Node connect(Node root) {
+    if (root == null) return root;
+    dfs(root, 0);
+    return root;
+}
+
+private void dfs(Node root, int levelNum) {
+    if (pres.size() == levelNum)
+        pres.add(root);
+    else {
+        pres.get(levelNum).next = root;
+        pres.remove(levelNum);
+        pres.add(levelNum, root);
+    }
+
+    if (root.left != null)
+        dfs(root.left, levelNum + 1);
+    if (root.right != null)
+        dfs(root.right, levelNum + 1);
+}
+```
+
+#### 方法三 进阶常数级空间复杂度
+
+##### 思路
+
+> 初始状态将 root 的 next建立，然后通过 root.next来遍历root这一层，在遍历这层过程中建立root.left和root.right之间的next关系，然后再通过next遍历下一层并建立下下层的next关系，以此类推先建立next，再根据next遍历，类似链表就能实现常数级空间复杂度。
+
+##### 复杂度分析
+
+> 时间复杂度：O(n)
+>
+> 空间复杂度：O(1)
+
+##### 代码
+
+```java
+/**
+ * 分别为标识上个节点、下层遍历的开始节点
+ */
+Node last = null, nextStart = null;
+
+public Node connect(Node root) {
+    if (root == null) {
+        return null;
+    }
+    Node start = root;
+    while (start != null) {
+        // 每层遍历前将标识清空
+        last = null;
+        nextStart = null;
+        // 通过next像遍历链表的方式遍历
+        for (Node p = start; p != null; p = p.next) {
+            if (p.left != null) {
+                handle(p.left);
+            }
+            if (p.right != null) {
+                handle(p.right);
+            }
+        }
+        // 当前层遍历完了，准备遍历下层
+        start = nextStart;
+    }
+    return root;
+}
+
+public void handle(Node p) {
+    // 上个节点不为空，当前节点就接在后面
+    if (last != null) {
+        last.next = p;
+    }
+    // 记录下层开始的节点
+    if (nextStart == null) {
+        nextStart = p;
+    }
+    // 标识上个节点的指针后移
+    last = p;
+}
+```
+
+
 
 
 
