@@ -1945,6 +1945,110 @@ public List<Integer> postorderTraversal(TreeNode root) {
 
 
 
+### [106. 从中序与后序遍历序列构造二叉树](https://leetcode-cn.com/problems/construct-binary-tree-from-inorder-and-postorder-traversal/)
+
+###### label：遍历树、构造二叉树
+
+##### 描述
+
+> 难度中等
+>
+> 根据一棵树的中序遍历与后序遍历构造二叉树。
+>
+> **注意:**
+> 你可以假设树中没有重复的元素。
+>
+> 例如，给出
+>
+> ```
+> 中序遍历 inorder = [9,3,15,20,7]
+> 后序遍历 postorder = [9,15,7,20,3]
+> ```
+>
+> 返回如下的二叉树：
+>
+> ```
+>     3
+>    / \
+>   9  20
+>     /  \
+>    15   7
+> ```
+
+#### 分析
+
+> 根据前序和中序可以构造一颗二叉树，根据中序和后续也可以构建一颗二叉树。 反正**必须有中序**才能构建，因为**没有中序，无法确定树的形状**。 比如先序和后序是不能构建唯一的一颗二叉树的。 例如： 先序为：[1, 2] 后序为：[2, 1]
+>
+> 可以构建如下
+>
+> ```angelscript
+>     1       1
+>    /    或    \
+>   2            2
+> ```
+>
+> **树的还原过程**
+>
+> > 1. 首先在后序遍历序列中找到根节点(最后一个元素)
+> > 2. 根据根节点在中序遍历序列中找到根节点的位置
+> > 3. 根据根节点的位置将中序遍历序列分为左子树和右子树
+> > 4. 根据根节点的位置确定左子树和右子树在中序数组和后续数组中的左右边界位置
+> > 5. 递归构造左子树和右子树
+> > 6. 返回根节点结束
+>
+> **树的还原过程变量定义**
+>
+> > HashMap memo 需要一个哈希表来保存中序遍历序列中,元素和索引的位置关系.因为从后序序列中拿到根节点后，要在中序序列中查找对应的位置,从而将数组分为左子树和右子树
+> > int ri 根节点在中序遍历数组中的索引位置
+> > 中序遍历数组的两个位置标记 [is, ie]，is 是起始位置，ie 是结束位置
+> > 后序遍历数组的两个位置标记 [ps, pe] ps 是起始位置，pe 是结束位置
+>
+> **位置关系的计算**
+>
+> ![树的计算过程.png](https://pic.leetcode-cn.com/50d7d9c1ac4c66d7089f4cc6e16d053a918230e333710b8fe312f2c622030287-%E6%A0%91%E7%9A%84%E8%AE%A1%E7%AE%97%E8%BF%87%E7%A8%8B.png)
+>
+>
+> ![树的还原.png](https://pic.leetcode-cn.com/ac050d257073f47285353d7ad412fb832326237ea85948a8b69d338171d67543-%E6%A0%91%E7%9A%84%E8%BF%98%E5%8E%9F.png)
+>
+
+##### 代码
+
+```java
+class Solution {
+
+    HashMap<Integer,Integer> memo = new HashMap<>();
+    int[] post;
+
+    public TreeNode buildTree(int[] inorder, int[] postorder) {
+        for(int i = 0;i < inorder.length; i++) memo.put(inorder[i], i);
+        post = postorder;
+        TreeNode root = buildTree(0, inorder.length - 1, 0, post.length - 1);
+        return root;
+    }
+
+    public TreeNode buildTree(int is, int ie, int ps, int pe) {
+        if(ie < is || pe < ps) return null;
+		// 根据后序遍历结果，取得根节点
+        int root = post[pe];
+        // 获取对应的索引
+        int ri = memo.get(root);
+
+        TreeNode node = new TreeNode(root);
+        node.left = buildTree(is, ri - 1, ps, ps + ri - is - 1);
+        node.right = buildTree(ri + 1, ie, ps + ri - is, pe - 1);
+        return node;
+    }
+}
+
+作者：reals
+链接：https://leetcode-cn.com/problems/construct-binary-tree-from-inorder-and-postorder-traversal/solution/tu-jie-gou-zao-er-cha-shu-wei-wan-dai-xu-by-user72/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+```
+
+
+
 
 
 ### [107. 二叉树的层次遍历 II](https://leetcode-cn.com/problems/binary-tree-level-order-traversal-ii/)
