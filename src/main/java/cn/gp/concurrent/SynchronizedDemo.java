@@ -6,7 +6,7 @@ import org.openjdk.jol.info.ClassLayout;
  * @author hongzhou.wei
  * @date 2020/8/26
  */
-public class Test {
+public class SynchronizedDemo {
 
     /**
      * 修饰方法
@@ -24,20 +24,27 @@ public class Test {
         synchronized (obj) {
             // 临界区
         }
+        synchronized (this){
+
+        }
     }
 
 
     public static void main(String[] args) {
-        classLayout();
-//        upgrade();
+//        classLayout();
+        upgrade();
 
     }
 
     /**
+     *  默认情况下偏向锁时关闭的，在VM options中加上下面语句开启偏向锁
+     *  -XX:+UseBiasedLocking -XX:BiasedLockingStartupDelay=0
+     */
+    /**
      * 打印锁的存储布局
      */
     private static void classLayout() {
-        Test classLayout = new Test();
+        SynchronizedDemo classLayout = new SynchronizedDemo();
         synchronized (classLayout) {
             System.out.println("locking");
             // 当计算了hashcode之后就不是偏向锁了，偏向锁存不了hashcode，升级为重量级锁
@@ -49,11 +56,12 @@ public class Test {
     }
 
     /**
-     * 锁的升级-demo
+     * 锁的升级过程-demo
      */
     private static void upgrade() {
+        //
         // 先是t0抢占到锁，此时没有竞争，等待5s后main线程开始抢占锁，锁由偏向锁升级为轻量级锁，再等5s有多个线程抢占锁升级为重量级锁
-        Test classLayout = new Test();
+        SynchronizedDemo classLayout = new SynchronizedDemo();
         new Thread(() -> {
             synchronized (classLayout) {
                 System.out.println("t0抢占到锁，暂无竞争");
