@@ -250,7 +250,7 @@ unpark().
 
    二进制（64位）：看最后三位 000（轻量级锁，通过最后三位查看锁的标记和状态，上图中含义表实际上轻量级锁只通过后面2位判断，无锁和偏向锁主要通过后三位判断）
 
-
+todo？？？上面的对象头存储所占的空间没搞懂？？？
 
 #### synchronized锁的升级
 
@@ -266,11 +266,37 @@ unpark().
 >
 > 当一个线程访问了同步锁的代码块时会在**对象头中存储当前线程的ID**，后续这个线程进入和退出这段加了同步锁的代码块时就**不需要再次加锁和释放锁**，而是**直接比较对象头里面是否存储了指向当前线程的偏向锁**。若相等表示偏向锁是偏向当前线程的就不需要再次尝试获得锁了。引入偏向锁是为了在无多线程竞争的情况下尽量**减少不必要的轻量级锁执行路径**。（偏向锁的目的是**消除数据在无竞争情况下的同步原语**，进一步提高程序的运行性能。）
 >
-> 偏向锁**默认是关闭的**，因为它只用作优化处理，当优化后遇到线程竞争的情况锁则会自动进行锁的升级。
+> 偏向锁**默认是开启的，但有4s启动延迟**，另外它只用作优化处理，当优化后遇到线程竞争的情况锁则会自动进行锁的升级。
 >
-> 打开偏向锁：VM options中输入
+> ```typescript
+> // 可以通过下面命令搜索JVM对偏向锁设置的默认值
+> // java -XX:+PrintFlagsFinal -version 会打印所有JVM最终参数
+> java -XX:+PrintFlagsFinal -version | grep Biased     // Linux下用 grep
+> java -XX:+PrintFlagsFinal -version | findstr Biased // Windows下用 findstr
+> 
+> // 搜索显示出以下内容
+>      intx BiasedLockingBulkRebiasThreshold          = 20                                  {product}
+>      intx BiasedLockingBulkRevokeThreshold          = 40                                  {product}
+>      intx BiasedLockingDecayTime                    = 25000                               {product}
+>      intx BiasedLockingStartupDelay                 = 4000                                {product}
+>      bool TraceBiasedLocking                        = false                               {product}
+>      bool UseBiasedLocking                          = true                                {product}
+> java version "1.8.0_202"
+> Java(TM) SE Runtime Environment (build 1.8.0_202-b08)
+> Java HotSpot(TM) 64-Bit Server VM (build 25.202-b08, mixed mode)
+> 
+> // 参数含义解释
+> BiasedLockingBulkRebiasThreshold // 批量重偏向。
+> BiasedLockingBulkRevokeThreshold // 批量撤销。
+> BiasedLockingDecayTime // 腐化的时间。
+> BiasedLockingStartupDelay // 启动延迟。
+> UseBiasedLocking // 偏向锁开关。
+> ```
 >
-> ```xml
+> **可以看到偏向锁默认是开启的，但有4s启动延迟。原因是JVM刚启动时一定有很多线程运行，所以必定会存在多个线程竞争，于是就设置了延迟4s。**
+>
+> ```typescript
+> // 在 VM options中输入以下命令可以设置偏向锁延迟时间为0，在启动程序时就能看到偏向锁作用效果，或者
 > -XX:+UseBiasedLocking -XX:BiasedLockingStartupDelay=0
 > ```
 >
@@ -296,7 +322,7 @@ unpark().
 >
 > monitorenter表示取获得一个对象监视器，monitorexit表示释放监视器的所有权，使得其他被阻塞的线程可以尝试去获得这个监视器。
 >
-> **monitor依赖操作系统的MutexLock（互斥锁）来实现**，线程被阻塞后便进入OS内核调度状态，这个会导致OS在用户态和内核态来回切换，严重影响锁的性能。
+> **monitor依赖操作系统的MutexLock（互斥锁）来实现**，线程被阻塞后便进入OS**内核调度状态**，这个会导致**OS在用户态和内核态来回切换**，严重影响锁的性能，这就是为什么 Synchronized 效率低的原因。
 
 
 
@@ -306,7 +332,7 @@ unpark().
 
 ##### 锁的升级过程
 
-> 无锁升级到偏向锁只会有一次CAS，偏向锁升级到轻量级锁会有多次CAS（默认最多10次），之所以这儿用多次CAS（自旋锁，自适应自旋）而不是阻塞是因为线程从获得锁到释放锁过程的时间很短，通过多次CAS抢占锁的性能比阻塞抢占锁的性能更好。但经过10次（这是JDK1.6之前，1.6之后引入了自适应自旋：根据上一次抢占锁时间的长短来决定当前自旋的次数，上次抢占锁时间长这次自旋次数就短些，上次抢占锁时间段这次自旋时间就长些）还没抢占到锁就宣告自旋失败，就会升级为重量级锁。
+> 无锁升级到偏向锁只会有一次CAS，偏向锁升级到轻量级锁会有多次CAS（1.6前默认最多10次），之所以这儿用多次CAS（自旋锁，自适应自旋）而不是阻塞，是因为线程从获得锁到释放锁过程的时间很短，通过多次CAS抢占锁的性能比阻塞抢占锁的性能更好。但经过10次（这是JDK1.6之前，**1.6之后引入了自适应自旋**：**根据上一次抢占锁时间的长短来决定当前自旋的次数**，上次抢占锁时间到当前抢占到锁的时间段越短，允许的自旋次数就多些）还没抢占到锁就宣告自旋失败，就会升级为重量级锁。
 >
 
 #### 线程的通信（wait/notify）

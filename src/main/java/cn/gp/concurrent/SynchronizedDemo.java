@@ -31,8 +31,8 @@ public class SynchronizedDemo {
 
 
     public static void main(String[] args) {
-//        classLayout();
-        upgrade();
+        classLayout();
+//        upgrade();
 
     }
 
@@ -44,9 +44,15 @@ public class SynchronizedDemo {
      * 打印锁的存储布局
      */
     private static void classLayout() {
+        try {
+            Thread.sleep(4500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         SynchronizedDemo classLayout = new SynchronizedDemo();
         synchronized (classLayout) {
             System.out.println("locking");
+            System.out.println("currentThreadId: "+Thread.currentThread().getId());
             // 当计算了hashcode之后就不是偏向锁了，偏向锁存不了hashcode，升级为重量级锁
 //            System.out.println(classLayout.hashCode());
             // 打印对象头，value中展示的二进制和十六进制是按照大端存储模式打印出来的，转成十进制的数据应该从后往前计算每组
