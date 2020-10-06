@@ -1,4 +1,4 @@
-package cn.gp.designpattern.factory.simple;
+package cn.gp.designpattern.a.factory.simple;
 
 import org.slf4j.LoggerFactory;
 

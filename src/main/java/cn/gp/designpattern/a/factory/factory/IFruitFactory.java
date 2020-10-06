@@ -1,4 +1,4 @@
-package cn.gp.designpattern.factory.factory;
+package cn.gp.designpattern.a.factory.factory;
 
 /**
  * 创建水果的工厂
@@ -7,5 +7,5 @@ package cn.gp.designpattern.factory.factory;
  * @date 2020/9/28
  */
 public interface IFruitFactory {
-    IFruit create(Class<? extends IFruit> clazz);
+    IFruit create();
 }

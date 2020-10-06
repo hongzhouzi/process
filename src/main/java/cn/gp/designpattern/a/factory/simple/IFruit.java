@@ -1,4 +1,4 @@
-package cn.gp.designpattern.factory.factory;
+package cn.gp.designpattern.a.factory.simple;
 
 /**
  * 定义水果接口
@@ -8,4 +8,5 @@ package cn.gp.designpattern.factory.factory;
  */
 public interface IFruit {
     String producer();
+//    String consumer();
 }

@@ -1,4 +1,4 @@
-package cn.gp.designpattern.factory.simple;
+package cn.gp.designpattern.a.factory.simple;
 
 /**
  * 生产水果的工厂类
