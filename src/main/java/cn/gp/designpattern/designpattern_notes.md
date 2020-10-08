@@ -470,23 +470,230 @@ public class SingletonTest {
 
 #####  2.3  懒汉式单例之静态内部类写法与优缺点
 
+> 静态内部类和静态属性不一样，静态属性在类加载时就分配了空间，但**静态内部类是在用的时候才分配内存空间**。虚拟机会保证一个**类在多线程环境中加载时会正确的加锁、同步**。
+>
+> ```java
+> public class LazyInnerClassSingleton {
+>     private LazyInnerClassSingleton() {
+>     }
+>
+>     /**
+>      * 内部类默认不加载，使用的时候才加载，内部类加载信息是：主类名$内部类名.class
+>      * 方法上加final关键字防止被重写，属性引用上加final不清楚为啥，感觉不加也没有问题。
+>      */
+>     public static final LazyInnerClassSingleton getInstance() {
+>         return Holder.INSTANCE;
+>     }
+>
+>     private static class Holder{
+>         private static final LazyInnerClassSingleton INSTANCE = new LazyInnerClassSingleton();
+>     }
+> }
+> ```
+>
+> ```
+> 当一个线程在加载内部类时切换到另个线程会有以下信息
+> 方法栈中显示：Frames not available for unsuspended thread
+> 变量处显示：Paused in another thread
+>
+> 原因是：虚拟机会保证一个类的<clinit>()方法在多线程环境中被正确的加锁、同步，如果多个线程同时去初始化一个类，那么只会有一个线程去执行这个类的<clinit>()方法，其他线程都需要阻塞等待，直到活动线程执行<clinit>()方法完毕。
+> 来自：https://www.cnblogs.com/aspirant/p/7200523.html
+> ```
+>
+> 优点：解决了饿汉式的内存浪费问题和synchronized的性能问题
+>
+> 缺点：能被反射破坏
+
 #### 三、反射是如何破坏单例的？
 
-#### 四、注册式单例
+```java
+void reflectTest(){
+  try {
+    // 在比较无聊的情况下，故意破坏
+    // 0、拿到类信息
+    Class<?> clazz = LazyInnerClassSingleton.class;
+    // 1、通过反射获取构造方法
+    Constructor<?> c = clazz.getDeclaredConstructor(null);
+    ///2、强制访问，可以拿到加private修饰的东西
+    c.setAccessible(true);
+    // 3、暴力初始化，调用多次构造方法
+    Object o1 = c.newInstance();
+    Object o2 = c.newInstance();
+    System.out.println(o1 == o2);
+    System.out.println(o1 + "\n" + o2);
+  }catch (Exception e){
+    e.printStackTrace();
+  }
+}
+```
+
+> 为了防止反射进行破坏，在所有的**私有构造方法中抛出异常**即可。
+>
+> ```java
+>     /**
+>      * 正常情况单例模式是不会使用它的，
+>      * 但要防止通过反射拿到它而进行多次实例化
+>      */
+>     private LazyInnerClassSingleton() {
+>         if(INSTANCE != null)
+>             throw new RuntimeException("不允许创建多个实例");
+>     }
+> ```
+
+#### 四、序列化是如何破坏单例的？
+
+> 对象创建好后有时候需要写入磁盘，下次使用对象时再从磁盘中读取对象并进行反序列化，将其转化为内存对象。**反序列化后的对象会重新分配内存**，即重新创建一次。那么若序列化的目标对象为单例对象，就破坏了单例。
+
+**解决方法**
+
+> 不能很好的解决
+>
+> ```java
+> /**
+>  * 防止序列表破坏单例，但反序列化时会被实例化多次，只是新创建的对象没有被返回
+>  * 如果创建对象的频率加快，就意外着内存分配开销也会加大
+>  */
+> private Object readResolve(){
+>     return instance;
+> }
+> ```
+
+#### 五、注册式单例
+
+> 注册式单例又称为登记式单例，将每个注册的对象都**使用唯一标识记录在一个地方**。注册式单例分两种：**1.枚举式、2.容器式**
 
 > 枚举类的底层规定了不能用反射方式创建
 
-##### 4.1  枚举式单例写法与优缺点
+##### 5.1  枚举式单例写法与优缺点（TODO）
 
-##### 4.2  容器式单例写法与优缺点
+###### 写法
+
+```java
+public enum EnumSingleton {
+    INSTANCE;
+    private Object data;
+
+    public Object getData() {
+        return data;
+    }
+
+    public void setData(Object data) {
+        this.data = data;
+    }
+    public static EnumSingleton getInstance(){
+        return INSTANCE;
+    }
+}
+```
+
+> 反编译出来如下
+> ```java
+> static{
+>   INSTANCE = new EnumSingleton("INSTANCE", 0);
+>   $VALUES = (new EnumSingleton[]{
+>     INSTANCE
+>   });
+> }
+> ```
+>
+> 说明它本质上是**饿汉式**单例的实现。
+>
+> 通过序列化也不能破坏。枚举类型通过类名和类对象找到一个唯一的枚举对象，因此枚举对象不可能被类加载器加载多次。
+>
+> Java规范字规定，每个枚举类型及其定义的枚举变量在`JVM`中都是唯一的，因此在枚举类型的序列化和反序列化上，Java做了特殊的规定。在序列化的时候Java仅仅是将枚举对象的name属性输到结果中，反序列化的时候则是通过`java.lang.Enum`的`valueOf()`方法来根据名字查找枚举对象。也就是说，序列化的时候只将`INSTANCE`这个名称输出，反序列化的时候再通过这个名称，查找对应的枚举类型，因此反序列化后的实例也会和之前被序列化的对象实例相同。
+
+###### 尝试通过反射破坏
+
+```java
+void reflectTest(){
+  try {
+    // 在比较无聊的情况下，故意破坏
+    // 0、拿到类信息
+    Class<?> clazz = EnumSingleton.class;
+    // 1、通过反射获取构造方法
+    // 因为枚举类的构造方法有这两个参数
+    Constructor<?> c = clazz.getDeclaredConstructor(String.class, int.class);
+    ///2、强制访问，可以拿到加private修饰的东西
+    c.setAccessible(true);
+    // 3、暴力初始化，调用多次构造方法
+    Object o1 = c.newInstance();
+    Object o2 = c.newInstance();
+    System.out.println(o1 + "\n" + o2);
+  }catch (Exception e){
+    e.printStackTrace();
+  }
+}
+```
+
+> 结果发现抛出异常：java.lang.IllegalArgumentException: Cannot reflectively create enum objects
+>
+> 看异常信息发现：**JDK中明确规定了不能使用反射创建枚举对象** ，这个和上面在构造方法中抛出异常有异曲同工之妙，但JDK处理是最官方的、最权威的。因此枚举单例也是《Effective Java》书中推荐的一种单例实现方式。
+>
+> ```java
+> // java.lang.reflect.Constructor#newInstance 中有如下限制
+> if ((clazz.getModifiers() & Modifier.ENUM) != 0)
+>     throw new IllegalArgumentException("Cannot reflectively create enum objects");
+>
+> ```
 
 
 
-#### 五、序列化是如何破坏单例的？
+##### 5.2  容器式单例写法与优缺点
 
+> Spring中的单例模式就是容器式单例写法，如下：
+>
 
+```java
+public class ContainerSingleton {
+    private ContainerSingleton(){}
+    private static Map<String, Object> ioc = new ConcurrentHashMap<String, Object>();
+
+    public static Object getBean(String className){
+        synchronized (ioc){
+            if(!ioc.containsKey(className)){
+                Object obj = null;
+                try {
+                    obj = Class.forName(className).newInstance();
+                    ioc.put(className, obj);
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+                return obj;
+            }else {
+                return ioc.get(className);
+            }
+        }
+    }
+}
+
+// 测试
+Object containerSingleton1 = ContainerSingleton.getBean("cn.gp.designpattern.b.singleton.SingletonTest");
+        Object containerSingleton2 = ContainerSingleton.getBean("cn.gp.designpattern.b.singleton.SingletonTest");
+        System.out.println(containerSingleton1 == containerSingleton2);
+```
+
+> 优点：适用于创建大量单例对象的场景，便于管理。通用性强，不管什么对象都可以创建为单例，而不用在类写成单例类
 
 #### 第六章  ThreadLocal单例介绍
+
+> ThreadLocal不能保证创建的对象时全局唯一的，但能够保证在单个线程中是唯一的，天生线程安全。
+
+```java
+public class ThreadLocalSingleton {
+    private ThreadLocalSingleton(){}
+
+    /*private static final ThreadLocal<ThreadLocalSingleton> INSTANT = new ThreadLocal<ThreadLocalSingleton>(){
+        @Override
+        protected ThreadLocalSingleton initialValue() {
+            return new ThreadLocalSingleton();
+        }
+    };*/
+    private static final ThreadLocal<ThreadLocalSingleton> INSTANT = ThreadLocal.withInitial(ThreadLocalSingleton::new);
+    public static ThreadLocalSingleton getInstance(){
+        return INSTANT.get();
+    }
+}
+```
 
 
 
@@ -993,7 +1200,7 @@ public abstract class JdbcUtils {
 > 1. 会出现更多代码和类，增加程序复杂性
 > 2. 动态装饰时，多层装饰时会更复杂。
 >
-> 
+>
 
 
 
@@ -1092,9 +1299,9 @@ sout(s1 == s2);// true
 
 >  HashMap中addAll(Map)
 >
-> ArrayList中addAll(List)
+>  ArrayList中addAll(List)
 >
-> Mybatis中SqlNode
+>  Mybatis中SqlNode
 
 #### 优缺点
 

@@ -8,6 +8,8 @@ public class LazyDoubleCheckSingleton {
     private static LazyDoubleCheckSingleton instance;
 
     private LazyDoubleCheckSingleton() {
+        if(instance != null)
+            throw new RuntimeException("不允许创建多个实例");
     }
 
     public static LazyDoubleCheckSingleton getInstance() {

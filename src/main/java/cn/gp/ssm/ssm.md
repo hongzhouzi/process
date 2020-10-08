@@ -70,29 +70,29 @@
 
 
 
+### SpringMVC的设计
 
+#### 思考设计
 
-
-
-#### 思考SpringMVC的设计
-
-**解决痛点**
+##### 解决痛点
 
 > 直接在servlet上编写Controller太繁琐了，每编写一个servlet类都需要在xml中配置、且servlet类继承servlet官方提供的类并重写里面的一些方法。随着业务越来越复杂servlet类也会越来越多、配置也会越来越臃肿，非常不好管理，后期维护就变得异常困难。
 
-**需求** 
+##### 项目需求
 
-> 解决上面痛点，基于servlet开发将配置和开发中
+> 解决上面痛点，基于servlet开发将配置和开发中，主要注意集中处理请求、封装请求参数、返回内容。
 
-**技术方案**
+##### 技术方案
 
 > 1. 容器化技术，对所有servlet类进行统一管理
 >
 > 2. 请求分发，有请求来时，统一交给一个类将请求分发给对应的类处理
 >
+> 3. 封装参数，post：用反射技术拿到处理请求的方法对应的接收参数的类，然后将请求体中的参数按照类中属性设置进去。get：用正则处理，从url中取出参数和值。
+>
 >    整体思路：容器启动时扫描注解，注册请求URL和对应的处理方法，请求时根据请求的URL定位到具体的处理方法；处理类中通过注解中加上对应URL，在反射方式拿到注解URL下的方法然后用反射调用该处理方法。
 
-**实现案例**
+#### 实现案例
 
 
 
@@ -162,3 +162,144 @@
 >
 >    ​
 
+# Spring手写实战
+
+### 顶层设计IOC与DI
+
+#### 思考设计
+
+##### 解决痛点
+
+> 以前项目中手动new对象，声明后直接new或者在构造方法中new。如果一个类在多个地方都被使用到就会被new出来多个。不好控制对象的生命周期
+
+##### 项目需求
+
+> 1. 对所有对象统一管理
+
+##### 技术方案
+
+> 1. 存放，将所有对象保存在一个地方，用map存放，需要该对象时直接从map中取。
+> 2. 属性赋值，将扫描到的类依次实例化，有依赖关系的就将实例化的对象的引用赋值给它。（有个循环依赖不好解决）
+
+#### 实现案例
+
+第一章：从Servlet到ApplicationContext
+
+> ApplicationContext 简单理解为工厂类；getBean() 从IOC容器中获取一个实例方法。
+>
+> 在调用Servlet init()时就要触发ApplicationContext
+>
+> Spring中调用DI由getBean触发，调用getBean先创建对象后触发DI。
+>
+> 1. 调用Servlet init()，创建ApplicationContext
+> 2. 调用ApplicationContext中的getBean创建对象然后发生DI
+>
+>
+>
+> 1. 调用Servlet init()，创建ApplicationContext
+>
+> 2. 读取配置文件(properties|xm|yml…)，创建BeanDefinitionReader
+>
+> 3. 扫描相关类，**配置文件中信息和扫描到的类相关信息都封装成BeanDefinition**保存在内存中(getBean要用)。从ApplicationContext到BeanDefinition过程中有个BeanDefinitionReader(解析文件)用来从文件中读取信息并将信息封装在BeanDefinition，因为ApplicationContext只负责创建bean不负责读取文件。（扫描类(遍历文件夹和文件)时记录类名，之后根据类名用反射拿到类信息）
+>
+> 4. 初始化容器(ApplicationContext.getBean())，并实例化对象，考虑到能够对对象进行很好的扩展用到了装饰器模式，因为这个对象可能变成代理对象，又考虑到代理对象与原生对象有关联关系，用**BeanWrapper保存原生对象与未来创建的各种扩展出的对象之间的关联关系**。
+>
+> 5. 完成DI（循环依赖：用两个缓存，循环两次；1.把第一次读取结果为空的BeanDefinition存到一个缓存，2.等第一次循环之后，第2次循环再检查第一次的缓存再进行赋值）
+>
+>    @Controller和@Service都是@Component的类似子类关系
+
+第二章：基础流程设计
+
+2.2.1、application.properties配置
+
+2.2.2、pom.xml配置
+
+2.2.3、web.xml配置
+
+2.2.4、GPDispatcherServlet实现
+
+第三章：顶层结构设计（配置解析和IOC）
+
+2.3.1、annotation（自定义配置）模块
+
+2.3.2、beans（配置封装）模块
+
+2.3.3、context（IOC容器）模块
+
+第四章：完成DI依赖注入功能
+
+2.4.1、从getBean()开始
+
+
+
+
+
+### SpringMVC
+
+> 核心处理流程：
+>
+> DispatcherServlet中调用init()作为入口，init()中调用initStategers()初始化九大组件。一个HandlerMapping对应一个HandlerAdapter，ViewResolver是根据ModeAndView来关联数据。
+>
+> 运行阶段：service()通过HandlerMapping拿到对应HandlerAdapter，再拿到ModeAndView，根据ModeAndView判断返回页面还是数据，若返回页面就启动模板引擎最后生成一个View，若返回数据就用response.getWrite().write()输出数据。View中的render()是渲染页面，读取模板中的文件内容，用正则替换占位符，最后通过response输出到浏览器。
+>
+> 九大组件中部分：
+>
+> HandlerMapping：根据url找到对应的处理方法’
+>
+> HandlerAdapter：动态参数适配器
+>
+> ModeAndView：将返回的结果封装成模板视图
+>
+> ViewResolver：视图转换器，模板引擎
+>
+> View：转换为视图显示
+
+
+
+> 视频中第二段开始晕车，还需要再看看
+>
+> 将url中的正则转义成java中正则。
+
+
+
+### AOP
+
+> 底层用动态代理实现，可以对功能增强和代码解耦。
+>
+> 织入一些新的代码，生成一个新的类。要么跟目标类实现一个相同的接口，要么就是直接继承目标类（JDK），覆盖目标类的方法（CGLIB）。
+>
+> 真正调用代码逻辑时直接运行生成的代理类的代码。
+>
+> 
+>
+> Advice 通知，一个处理方法对应多个通知，Map<<Method, List<Advice>>>,
+>
+> IOC/AOP/DI/MVC的顺序
+>
+> 从ApplicationContext中进入，判断BeanWarper中的类是否要生成代理类。需要生成代理类就生成代理类(根据切面表达式判断)，并在实例化bean中将代理类实例化的对象作为实例对象。
+>
+> ApplicationContext  ->  AdvisedSupport  ->  AopConfig  ->  Advice  ->   JDKDynamicAopProxy  
+
+
+
+# Spring核心原理源码分析
+
+### IOC运行时序图
+
+> 对象与对象之间的关系表示：xml/yml/注解等
+>
+> 描述对象关系的文件存放：classpath/network/filesystem/servletContext/annotation.
+>
+> spring读取时先要找到文件在哪儿，再加载里面的内容。由于来源广泛且不同配置文件书写语法不一致，于是就定义 了一个配置文件标准，将配置文件中的信息统一解析放在BeanDefinition中，统一格式。
+>
+> 在解析配置文件时根据不同配置文件类型实施不同解析策略。
+>
+> ClassPathApplicationContext/AnnotationConfigApplicationContext/WebApplicationContext等解析策略。BeanDefinitionReader也有多种（XmlBeanDefinitionReader等）BeanDefinition层次也有多种封装策略（如：XmlBeanDefinition等 ），但最终都需封装成BeanDefinition。
+
+**IOC容器初始化三部曲**
+
+> 定位：定位配置文件和扫描相关注解
+>
+> 加载
+>
+> 注册
