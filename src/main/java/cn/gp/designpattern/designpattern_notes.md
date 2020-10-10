@@ -544,9 +544,46 @@ void reflectTest(){
 
 > 对象创建好后有时候需要写入磁盘，下次使用对象时再从磁盘中读取对象并进行反序列化，将其转化为内存对象。**反序列化后的对象会重新分配内存**，即重新创建一次。那么若序列化的目标对象为单例对象，就破坏了单例。
 
+```java
+// 路径：ObjectInputStream.readObject() -> readObject0(false); ->  readOrdinaryObject(unshared)
+// java.io.ObjectInputStream#readOrdinaryObject中
+Object obj;
+try {
+    // ========初始化对象，只要有构造方法就要初始化（单例必须有构造方法所以这儿肯定要初始化）=========
+    obj = desc.isInstantiable() ? desc.newInstance() : null;
+}
+// ……
+if (obj != null &&
+    handles.lookupException(passHandle) == null &&
+    // 若有ReadResolveMethod就准备调用
+    desc.hasReadResolveMethod())
+{
+    // =========调用readResolve()============
+    Object rep = desc.invokeReadResolve(obj);
+    if (unshared && rep.getClass().isArray()) {
+        rep = cloneArray(rep);
+    }
+    // =====调用readResolve返回的引用和创建对象的引用不一样时======
+    if (rep != obj) {
+        // Filter the replacement object
+        if (rep != null) {
+            if (rep.getClass().isArray()) {
+                filterCheck(rep.getClass(), Array.getLength(rep));
+            } else {
+                filterCheck(rep.getClass(), -1);
+            }
+        }
+        // ========将新创建的obj引用覆盖==========
+        handles.setObject(passHandle, obj = rep);
+    }
+}
+// 返回对象
+return obj;
+```
+
 **解决方法**
 
-> 不能很好的解决
+> 不能很好的解决，因为它依然创建了新对象，只是新创建的对象没有返回，返回的是原来的对象，有个地方通过反射找到无参的readResolve()，我们自己写的readResolve()范回的原对象。
 >
 > ```java
 > /**
@@ -558,13 +595,15 @@ void reflectTest(){
 > }
 > ```
 
+![序列化破坏单例解决resolve](.\designpattern_notes.assets\序列化破坏单例解决resolve-1602255401117.png)
+
 #### 五、注册式单例
 
 > 注册式单例又称为登记式单例，将每个注册的对象都**使用唯一标识记录在一个地方**。注册式单例分两种：**1.枚举式、2.容器式**
 
 > 枚举类的底层规定了不能用反射方式创建
 
-##### 5.1  枚举式单例写法与优缺点（TODO）
+##### 5.1  枚举式单例写法与优缺点
 
 ###### 写法
 
@@ -586,21 +625,102 @@ public enum EnumSingleton {
 }
 ```
 
-> 反编译出来如下
+> 这种写法能够保证**EnumSingleton是单例**的，但它里面可以设置data，**data的引用可以改变**，但不管怎么变都**只能有一个**。
+
+> **反编译结果如下：**
+>
 > ```java
-> static{
->   INSTANCE = new EnumSingleton("INSTANCE", 0);
->   $VALUES = (new EnumSingleton[]{
->     INSTANCE
->   });
+> public final class EnumSingleton extends Enum
+> {
+> 
+>     public static EnumSingleton[] values()
+>     {
+>         return (EnumSingleton[])$VALUES.clone();
+>     }
+> 
+>     public static EnumSingleton valueOf(String name)
+>     {
+>         return (EnumSingleton)Enum.valueOf(cn/gp/designpattern/b/singleton/registry/EnumSingleton, name);
+>     }
+> 
+>     private EnumSingleton(String s, int i)
+>     {
+>         super(s, i);
+>     }
+> 
+>     public Object getData()
+>     {
+>         return data;
+>     }
+> 
+>     public void setData(Object data)
+>     {
+>         this.data = data;
+>     }
+> 
+>     public static EnumSingleton getInstance()
+>     {
+>         return INSTANCE;
+>     }
+> 
+>     public static final EnumSingleton INSTANCE;
+>     private Object data;
+>     private static final EnumSingleton $VALUES[];
+> 
+>     static
+>     {
+>         INSTANCE = new EnumSingleton("INSTANCE", 0);
+>         $VALUES = (new EnumSingleton[] {
+>             INSTANCE
+>         });
+>     }
 > }
 > ```
 >
-> 说明它本质上是**饿汉式**单例的实现。
->
+> 可以看到它本质上是**饿汉式**单例的实现。
+
+**尝试通过序列化破坏**
+
 > 通过序列化也不能破坏。枚举类型通过类名和类对象找到一个唯一的枚举对象，因此枚举对象不可能被类加载器加载多次。
 >
-> Java规范字规定，每个枚举类型及其定义的枚举变量在`JVM`中都是唯一的，因此在枚举类型的序列化和反序列化上，Java做了特殊的规定。在序列化的时候Java仅仅是将枚举对象的name属性输到结果中，反序列化的时候则是通过`java.lang.Enum`的`valueOf()`方法来根据名字查找枚举对象。也就是说，序列化的时候只将`INSTANCE`这个名称输出，反序列化的时候再通过这个名称，查找对应的枚举类型，因此反序列化后的实例也会和之前被序列化的对象实例相同。
+> Java规范字规定，每个枚举类型及其定义的枚举变量在`JVM`中都是唯一的，因此在枚举类型的序列化和反序列化上，Java做了特殊的规定。在序列化的时候Java仅仅是将枚举对象的name属性输到结果中，反序列化的时候则是通过`java.lang.Enum`的`valueOf()`方法来**根据名字查找枚举对象**。也就是说，序列化的时候只将`INSTANCE`这个名称输出，反序列化的时候再通过这个名称，查找对应的枚举类型，因此反序列化后的实例也会和之前被序列化的对象实例相同。
+>
+> ```java
+> // 路径：ObjectInputStream.readObject() -> readObject0(false); -> switch case中TC_ENUM项 readEnum(unshared)
+> // java.io.ObjectInputStream#readEnum
+> // =============读取枚举对象的name===================
+> String name = readString(false);
+> Enum<?> result = null;
+> Class<?> cl = desc.forClass();
+> if (cl != null) {
+>     try {
+>         // =======通过类名和枚举对象name查找对应的枚举类型，并将结果赋值给result==========
+>         Enum<?> en = Enum.valueOf((Class)cl, name);
+>         result = en;
+>     } catch (IllegalArgumentException ex) {
+>         throw (IOException) new InvalidObjectException(
+>             "enum constant " + name + " does not exist in " +
+>             cl).initCause(ex);
+>     }
+>     if (!unshared) {
+>         handles.setObject(enumHandle, result);
+>     }
+> }
+> return result;
+> 
+> // ===============Enum.valueOf====================
+> public static <T extends Enum<T>> T valueOf(Class<T> enumType,
+>                                             String name) {
+>     // =======
+>     T result = enumType.enumConstantDirectory().get(name);
+>     if (result != null)
+>         return result;
+>     if (name == null)
+>         throw new NullPointerException("Name is null");
+>     throw new IllegalArgumentException(
+>         "No enum constant " + enumType.getCanonicalName() + "." + name);
+> }
+> ```
 
 ###### 尝试通过反射破坏
 
@@ -695,11 +815,29 @@ public class ThreadLocalSingleton {
 }
 ```
 
+#### 源码中的应用
+
+```java
+// java.lang.Runtime
+public class Runtime {
+    // 饿汉式单例
+    private static Runtime currentRuntime = new Runtime();
+    public static Runtime getRuntime() {
+        return currentRuntime;
+    }
+
+    private Runtime() {}
+    // ……
+}
+```
+
 
 
 ### 原型模式
 
 > 原型实例指定创建对象的种类，并通过拷贝这些原型创建新的对象。调用者不需要知道创建细节，不用调用构造函数。（创建型模式）
+>
+> 原型模式的核心在于**拷贝原型对象**，创建新的对象消耗比较大（递归调用超类、数据准备、访问权限、调用构造函数等），它的思想在于以系统中已存在的对象为原型，直接基于内存二进制流进行拷贝，无需经历耗时的对象初始化过程。
 
 
 
@@ -708,16 +846,90 @@ public class ThreadLocalSingleton {
 > 1. 类初始化消耗资源较多时
 > 2. new 产生的一个对象需要非常多繁琐的过程（数据准备，访问权限）
 > 3. 构造函数比较复杂
+>
+> Spring中的原型模式（scope="prototype"）；JSON.parseObject()
 
 #### 常见写法
 
 ##### 简单克隆写法
 
+> 实现 Cloneable 接口，重写clone()，调父类clone()后做个转型。object的clone()是本地方法
+
+```java
+public ProtoTypeEntity clone()  {
+    try {
+        return (ProtoTypeEntity) super.clone();
+    } catch (CloneNotSupportedException e) {
+        e.printStackTrace();
+        return null;
+    }
+}
+```
+
+
+
 ##### 深度克隆写法
+
+> 实现 Serializable 接口，因为有用到java中的流操作
+
+```java
+public ProtoTypeEntity deepClone() {
+    try {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(bos);
+        oos.writeObject(this);
+
+        ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
+        ObjectInputStream ois = new ObjectInputStream(bis);
+
+        return (ProtoTypeEntity) ois.readObject();
+    } catch (IOException | ClassNotFoundException e) {
+        e.printStackTrace();
+        return null;
+    }
+}
+```
+
+**测试**
+
+> ```java
+> public class Test {
+>     public static void main(String[] args) {
+>         ProtoTypeEntity entity = new ProtoTypeEntity();
+>         entity.setAge(15);
+>         entity.setName("zz");
+>         List<String> hobbies = new ArrayList<>();
+>         hobbies.add("唱");
+>         hobbies.add("跳");
+>         hobbies.add("rap");
+>         hobbies.add("篮球");
+>         entity.setHobbies(hobbies);
+> 
+>         System.out.println("原型对象：" + entity);
+>         ProtoTypeEntity copy = entity.clone();
+>         copy.getHobbies().add("copy");
+> 
+>         ProtoTypeEntity deep = entity.deepClone();
+>         deep.getHobbies().add("deep");
+> 
+>         System.out.println("原型对象：" + entity);
+>         System.out.println("浅复制对象：" + copy);
+>         System.out.println("深复制对象：" + deep);
+>         System.out.println("浅复制对象与原型对象的属性引用相等 "+ (entity.getHobbies() == copy.getHobbies()));
+>         System.out.println("深复制对象与原型对象的属性引用相等 "+ (entity.getHobbies() == deep.getHobbies()));
+>     }
+> }
+> ```
 
 #### 克隆破坏单例模式
 
-> 若是单例则不能实现克隆方法，它们是相互冲突的
+> 克隆会破坏单例，防止克隆破坏单例可以通过禁止克隆。
+
+```java
+public Object clone()  {
+    return this; // 或者 return INSTSANCE;
+}
+```
 
 ##### Cloneable源码分析
 
@@ -745,13 +957,17 @@ public class ThreadLocalSingleton {
 >
 > 深拷贝、浅拷贝需要运用得当，不然会导致些麻烦事。
 
+
+
+
+
 ### 建造者模式
 
-
-
-> 将一个复杂对象的构建与它的表示分离，使得同样的构建过程可以创建不同的表示。
+> 将一个复杂对象的构建与表示分离，使得同样的构建过程可以创建不同的表示。
 >
 > 用户只需要指定需要建造的类型就可以获得对象，建造过程及细节不需要了解（创建型）。
+>
+> 通俗理解：将食材和作料都买齐给厨师，厨师把做好的菜给我，我并不需要了解做菜的细节。
 
 #### 应用场景
 
@@ -760,22 +976,36 @@ public class ThreadLocalSingleton {
 > 若一个对象有非常复杂的内部结构（很多属性）
 >
 > 把复杂对象的创建和使用分离。
+>
+> 结合链式编程更优雅（链式编程：对入参做过一些操作后，返回处理后的值）。
 
 #### 常见写法
 
 ##### 基本写法
 
-> 与顺序无关
+> 略
 
 ##### 链式写法
+
+```java
+Object f(Object o){
+    // 对对象o的各种操作
+    // 最后返回原对象
+    return o;
+}
+```
 
 
 
 #### 应用案例
 
+> - JPA的 Query, 只需要把SQL的限制条件放进去即可，不用关心SQL条件的相对位置, 还可以避免手动拼接sql时产生的人为拼接错误。
+>
+> - StringBuilder中，我们期望把字符串拼接在一起，但java中String类是不可变的，拼接过程中就会产生多个String对象，但在用到StringBuilder时，它会将需要拼接的内容按拼接顺序存在char[]数组中，等用户拼接结束就可以调后toString()将数组中的内容一次性转换成String。（补充：String中的"+"号在编译时编译成的StringBuilder用append()拼接的，但String只要生成了就不能变了，想拼接则会生成新的String对象，StringBuilder在拼接过程中一直都是用的一个对象）
+
 #### 源码中的体现
 
-> StringBuilder
+> StringBuilder：append()后调用toString()就可以得到构造好的字符串。
 >
 > CacheBuilder(Mybatis)
 >
@@ -799,7 +1029,8 @@ public class ThreadLocalSingleton {
 
 #### 建造者模式与工厂模式的区别
 
-
+> - 创建对象力度不同，建造者更适合创建由各种复杂部件组成的对象，工厂创建出的都是单一的一样的。
+> - 关注重点不同，建造者要知道最后结果由那些组成，最后创建出对象，工厂只需要创建出对象。
 
 
 
@@ -1618,7 +1849,7 @@ sout(s1 == s2);// true
 >
 > 1. **行为随状态改变而改变**
 > 2. 一个操作中有大量**取决于对象状态的分支结构**
-> 3. ​
+> 3. 
 
 ##### 业务场景中的应用
 

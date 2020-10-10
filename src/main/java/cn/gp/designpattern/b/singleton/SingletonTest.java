@@ -2,7 +2,6 @@ package cn.gp.designpattern.b.singleton;
 
 import cn.gp.designpattern.b.singleton.lazy.LazyDoubleCheckSingleton;
 import cn.gp.designpattern.b.singleton.lazy.LazyInnerClassSingleton;
-import cn.gp.designpattern.b.singleton.lazy.LazySingleton;
 import cn.gp.designpattern.b.singleton.registry.ContainerSingleton;
 import cn.gp.designpattern.b.singleton.registry.EnumSingleton;
 
@@ -21,7 +20,8 @@ public class SingletonTest {
         SingletonTest test = new SingletonTest();
 //        test.concurrentTest();
 //        test.reflectTest();
-        test.f();
+        test.serializableTest();
+//        test.f();
     }
 
     /**
@@ -32,7 +32,7 @@ public class SingletonTest {
             // 在比较无聊的情况下，故意破坏
             // 0、拿到类信息
 //            Class<?> clazz = LazyInnerClassSingleton.class;
-            Class<?> clazz = EnumSingleton.class;
+            Class<?> clazz = cn.gp.designpattern.b.singleton.registry.EnumSingleton.class;
             // 1、通过反射获取构造方法
 //            Constructor<?> c = clazz.getDeclaredConstructor(null);
             // 因为枚举类的构造方法有这两个参数
@@ -54,7 +54,7 @@ public class SingletonTest {
      */
     void serializableTest(){
 
-        SerializableSingleton s1 = null;
+        /*SerializableSingleton s1 = null;
         SerializableSingleton s2 = SerializableSingleton.getInstance();
 
         FileOutputStream fos = null;
@@ -77,6 +77,31 @@ public class SingletonTest {
 
         } catch (Exception e) {
             e.printStackTrace();
+        }*/
+
+        EnumSingleton s1 = null;
+        EnumSingleton s2 = EnumSingleton.getInstance();
+
+        FileOutputStream fos = null;
+        try {
+
+            fos = new FileOutputStream("SerializableSingleton.obj");
+            ObjectOutputStream oos = new ObjectOutputStream(fos);
+            oos.writeObject(s2);
+            oos.flush();
+            oos.close();
+
+            FileInputStream fis = new FileInputStream("SerializableSingleton.obj");
+            ObjectInputStream ois = new ObjectInputStream(fis);
+            s1 = (EnumSingleton)ois.readObject();
+            ois.close();
+
+            System.out.println(s1);
+            System.out.println(s2);
+            System.out.println(s1 == s2);
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -85,13 +110,16 @@ public class SingletonTest {
      */
     void f(){
         // ==============EnumSingleton======================
-        EnumSingleton s = EnumSingleton.getInstance();
+        cn.gp.designpattern.b.singleton.registry.EnumSingleton s = cn.gp.designpattern.b.singleton.registry.EnumSingleton.getInstance();
         s.setData(new Object());
-        Object data = EnumSingleton.getInstance().getData();
-        EnumSingleton s1 = EnumSingleton.getInstance();
+        cn.gp.designpattern.b.singleton.registry.EnumSingleton s1 = cn.gp.designpattern.b.singleton.registry.EnumSingleton.getInstance();
         s1.setData(new Object());
+        // data 的引用可以改变，但EnumSingleton始终只有一个实例不会变
+        Object data = s.getData();
         Object data1 = s1.getData();
-        System.out.println(data ==data1);
+        System.out.println(s +"==="+ s1);
+        System.out.println(s == s1);
+        System.out.println(data == data1);
 
         // ==============LazyDoubleCheckSingleton======================
         LazyDoubleCheckSingleton doubleCheckSingleton1 = LazyDoubleCheckSingleton.getInstance();
