@@ -1,12 +1,8 @@
-package cn.gp.designpattern.proxy.dynamic.jdk;
+package cn.gp.designpattern.d.proxy.dynamic.jdk;
 
-import cn.gp.designpattern.proxy.static1.MyProxy;
 import sun.misc.ProxyGenerator;
 
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.lang.reflect.Proxy;
 
 /**
  * @author hongzhou.wei

@@ -1,4 +1,4 @@
-package cn.gp.designpattern.proxy.static1;
+package cn.gp.designpattern.d.proxy.static1;
 
 /**
  * 代理类

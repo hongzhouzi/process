@@ -1,4 +1,4 @@
-package cn.gp.designpattern.proxy.dynamic.write;
+package cn.gp.designpattern.d.proxy.dynamic.write;
 
 import javax.jws.Oneway;
 import java.lang.reflect.Method;

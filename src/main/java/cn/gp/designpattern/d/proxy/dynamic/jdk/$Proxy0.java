@@ -11,7 +11,7 @@ package cn.gp.designpattern.proxy.dynamic.jdk;
 // (powered by Fernflower decompiler)
 //
 
-import cn.gp.designpattern.proxy.dynamic.jdk.ISubject;
+import ISubject;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -43,7 +43,7 @@ public final class $Proxy0 extends Proxy implements ISubject {
         } catch (RuntimeException | Error var2) {
             throw var2;
         } catch (Throwable var3) {
-            throw ne    w UndeclaredThrowableException(var3);
+            throw new UndeclaredThrowableException(var3);
         }
     }
 
@@ -70,7 +70,7 @@ public final class $Proxy0 extends Proxy implements ISubject {
     static {
         try {
             m1 = Class.forName("java.lang.Object").getMethod("equals", Class.forName("java.lang.Object"));
-            m3 = Class.forName("cn.gp.designpattern.proxy.dynamic.jdk.ISubject").getMethod("business");
+            m3 = Class.forName("ISubject").getMethod("business");
             m2 = Class.forName("java.lang.Object").getMethod("toString");
             m0 = Class.forName("java.lang.Object").getMethod("hashCode");
         } catch (NoSuchMethodException var2) {

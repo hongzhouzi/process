@@ -1,4 +1,4 @@
-package cn.gp.designpattern.proxy.dynamic.jdk;
+package cn.gp.designpattern.d.proxy.static1;
 
 /**
  * @author hongzhou.wei

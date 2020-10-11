@@ -632,41 +632,41 @@ public enum EnumSingleton {
 > ```java
 > public final class EnumSingleton extends Enum
 > {
-> 
+>
 >     public static EnumSingleton[] values()
 >     {
 >         return (EnumSingleton[])$VALUES.clone();
 >     }
-> 
+>
 >     public static EnumSingleton valueOf(String name)
 >     {
 >         return (EnumSingleton)Enum.valueOf(cn/gp/designpattern/b/singleton/registry/EnumSingleton, name);
 >     }
-> 
+>
 >     private EnumSingleton(String s, int i)
 >     {
 >         super(s, i);
 >     }
-> 
+>
 >     public Object getData()
 >     {
 >         return data;
 >     }
-> 
+>
 >     public void setData(Object data)
 >     {
 >         this.data = data;
 >     }
-> 
+>
 >     public static EnumSingleton getInstance()
 >     {
 >         return INSTANCE;
 >     }
-> 
+>
 >     public static final EnumSingleton INSTANCE;
 >     private Object data;
 >     private static final EnumSingleton $VALUES[];
-> 
+>
 >     static
 >     {
 >         INSTANCE = new EnumSingleton("INSTANCE", 0);
@@ -707,7 +707,7 @@ public enum EnumSingleton {
 >     }
 > }
 > return result;
-> 
+>
 > // ===============Enum.valueOf====================
 > public static <T extends Enum<T>> T valueOf(Class<T> enumType,
 >                                             String name) {
@@ -904,14 +904,14 @@ public ProtoTypeEntity deepClone() {
 >         hobbies.add("rap");
 >         hobbies.add("篮球");
 >         entity.setHobbies(hobbies);
-> 
+>
 >         System.out.println("原型对象：" + entity);
 >         ProtoTypeEntity copy = entity.clone();
 >         copy.getHobbies().add("copy");
-> 
+>
 >         ProtoTypeEntity deep = entity.deepClone();
 >         deep.getHobbies().add("deep");
-> 
+>
 >         System.out.println("原型对象：" + entity);
 >         System.out.println("浅复制对象：" + copy);
 >         System.out.println("深复制对象：" + deep);
@@ -1038,11 +1038,9 @@ Object f(Object o){
 
 ### 代理
 
-> 为其他对象提供一种代理，以控制对这个对象的访问。（结构模式）
->
-> 某些情况下，一个对象不适合或者不能直接引用另一个对象，而代理对象可以在客户端与目标对象之间起到中介作用。
->
 > 作用：**增强目标对象**对原代码逻辑前后的增强，而使调用者无感知（如非入侵式日志记录）。或者**保护目标对象**。	
+>
+> 某些情况下，一个对象不适合或者不能直接引用另一个对象，而代理对象可以在客户端与目标对象之间起到中介作用。（结构模式）
 
 **包含的三种角色**
 
@@ -1060,9 +1058,21 @@ Object f(Object o){
 
 #### 二、静态代理
 
-> 对遵守协议的类进行代理，其中只能**硬编码**，没有遵守协议的类一律不代理。
+> 对遵守协议的类进行代理，其中只能**硬编码**，没有遵守协议的类一律不代理。（这儿的“协议”可以用接口或类规定）
 
 **代码**
+
+> 实现要点：
+>
+> 1. 用接口规定一些方法
+>
+> 2. 代理类中实现接口，并在声明接口作为成员变量，构造方法中传入接口引用指向成员变量，实现接口的方法中调用接口中规定的方法并加入功能增强的逻辑。
+>
+> 3. 真实主题类中实现接口的方法。
+>
+> 4. 调用者在调用时声明代理类，并传入真实主题类的引用，调用代理类的。
+>
+>    ![静态代理类图](designpattern_notes.assets/静态代理类图.png)
 
 ```java
 // 抽象主题类（协议）
@@ -1106,12 +1116,107 @@ public class RealSubject implements ISubject{
 
 **应用案例**
 
-> 数据源切换，todo
+> 数据源切换，在分布式场景下根据订单创建时间自动按年份进行分库。
 
 **代码**
 
+订单实体
+
 ```java
-todo
+@Data
+public class Order {
+    private Object orderInfo;
+    //订单创建时间进行按年分库
+    private Long createTime;
+    private String id;
+}
+```
+
+动态数据源-实体
+
+```java
+public class DynamicDataSourceEntity {
+    public final static String DEFAULE_SOURCE = null;
+
+    private final static ThreadLocal<String> local = new ThreadLocal<String>();
+
+    private DynamicDataSourceEntity(){}
+
+    public static String get(){return  local.get();}
+
+    public static void restore(){
+        local.set(DEFAULE_SOURCE);
+    }
+
+    // DB_2018 、DB_2019
+    public static void set(String source){local.set(source);}
+
+    public static void set(int year){local.set("DB_" + year);}
+}
+```
+
+订单接口和实现类
+
+```java
+public interface IOrderService {
+    int createOrder(Order order);
+}
+
+public class OrderServiceImpl implements IOrderService{
+    @Override
+    public int createOrder(Order order) {
+        System.out.println("OrderService调用orderDao创建订单");
+        return 1;
+    }
+}
+```
+
+代理类
+
+```java
+public class OrderServiceStaticProxy implements IOrderService {
+    private SimpleDateFormat yearFormat = new SimpleDateFormat("yyyy");
+    private IOrderService orderService;
+    public OrderServiceStaticProxy(IOrderService orderService) {
+        this.orderService = orderService;
+    }
+
+    @Override
+    public int createOrder(Order order) {
+        // ========== 前置操作，模拟根据年份切换数据源==========
+        Long time = order.getCreateTime();
+        Integer dbRouter = Integer.valueOf(yearFormat.format(new Date(time)));
+        System.out.println("静态代理类自动分配到【DB_" +  dbRouter + "】数据源处理数据" );
+        DynamicDataSourceEntity.set(dbRouter);
+
+        // ========== 调用真实主题类的方法==========
+        this.orderService.createOrder(order);
+
+        // ========== 后置操作，切换回默认数据源==========
+        DynamicDataSourceEntity.restore();
+        return 0;
+    }
+}
+```
+
+测试类
+
+```java
+public class Test {
+    public static void main(String[] args) {
+        try {
+            Order order = new Order();
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
+            Date date = sdf.parse("2019/03/01");
+            order.setCreateTime(date.getTime());
+
+            IOrderService orderService = (IOrderService)new OrderServiceDynamicProxy().getInstance(new OrderServiceImpl());
+            orderService.createOrder(order);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+}
 ```
 
 
@@ -1184,6 +1289,17 @@ public class Test {
         ProxyProcess proxy = new ProxyProcess();
         ISubject subject = proxy.getInstance(new RealSubject());
         subject.business();
+      
+      	// 将临时代码输出到磁盘，可通过反编译tool查看到源码
+        byte[] bytes = ProxyGenerator.generateProxyClass("$Proxy0",
+                new Class[]{ISubject.class});
+        try {
+            FileOutputStream fos = new FileOutputStream("E://$Proxy0.class");
+            fos.write(bytes);
+            fos.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
 ```
@@ -1197,25 +1313,304 @@ public class Test {
 > 1. **反射**获取**被代理类**对象的**引用**和**所有接口**；
 > 2. **生成**一个实现被代理类的所有接口的**临时类**；
 > 3. **编译**动态生成的临时类；
-> 4. **加载**到JVM中**运行**。
+> 4. **加载**到JVM中**运行** ；
+> 5. 返回新的代理对象。
 >
 > 在JDK中有个在ClassPath下只要是$开头的.class文件，一般都是动态生成的。
 
+> 查看反编译出的源码发现，$Proxy0继承了Proxy类，同时实现了ISubject接口且类加上了final修饰，里面重写了ISubject接口定义的方法，在静态块中保存了所有方法的引用，重写的方法用反射调用目标对象的方法。
 
+
+
+> 我们自己实现JDK Proxy时主要要写这样几个类：InvocationHandler(定义回调接口)、Proxy(生成源代码)、ClassLoader(加载自定义Proxy生成的代码的类)
+
+回调接口
+
+```java
+public interface MyInvocationHandler {
+    Object invoke(Object proxy, Method method, Object[] args) throws Throwable;
+}
+```
+
+类加载器
+
+```java
+public class MyClassLoader extends ClassLoader{
+    private File classPathFile;
+    public MyClassLoader(){
+        // 代理类生成的文件位于本路径下
+        String classPath = MyClassLoader.class.getResource("").getPath();
+        this.classPathFile = new File(classPath);
+    }
+
+    @Override
+    protected Class<?> findClass(String name) throws ClassNotFoundException {
+        String className = MyClassLoader.class.getPackage().getName() + "." + name;
+        if(classPathFile  != null){
+            File classFile = new File(classPathFile,name.replaceAll("\\.","/") + ".class");
+            if(classFile.exists()){
+                FileInputStream in = null;
+                ByteArrayOutputStream out = null;
+                try{
+                    // 读取文件内容
+                    in = new FileInputStream(classFile);
+                    out = new ByteArrayOutputStream();
+                    byte [] buff = new byte[1024];
+                    int len;
+                    while ((len = in.read(buff)) != -1){
+                        out.write(buff,0,len);
+                    }
+                    // ClassLoader 中的方法，将class文件封装在Class类中
+                    return defineClass(className,out.toByteArray(),0,out.size());
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        }
+        return null;
+    }
+}
+```
+
+代理类
+
+```java
+public class MyProxy {
+    public static final String ln = "\r\n";
+
+    public static Object newProxyInstance(MyClassLoader classLoader, Class<?> [] interfaces, MyInvocationHandler h){
+        try {
+            // 1、动态生成源代码.java文件
+            String src = generateSrc(interfaces);
+
+            // 2、Java文件输出磁盘
+            File f = write2Desk(src);
+
+            //3、把生成的.java文件编译成.class文件
+            compiler(f);
+
+            //4、编译生成的.class文件加载到JVM中来
+            // $Proxy0 和生成类时类名保持一致即可，生成的临时类放在本类同路径下
+            // 所以这儿要自定义ClassLoader，在加载临时类时就在当前同路径下找的
+            Class proxyClass =  classLoader.findClass("$Proxy0");
+            // 注意：构造器中要传入调用处理器
+            Constructor c = proxyClass.getConstructor(MyInvocationHandler.class);
+            f.delete();
+
+            //5、返回字节码重组以后的新的代理对象
+            // 注意：构造器中要传入调用处理器
+            return c.newInstance(h);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     * 生成代理类的源代码
+     *
+     * @param interfaces
+     * @return
+     */
+    private static String generateSrc(Class<?>[] interfaces){
+        StringBuffer sb = new StringBuffer();
+        // 包相关
+        sb.append(MyProxy.class.getPackage() + ";" + ln);
+        sb.append("import " + interfaces[0].getName() + ";" + ln);
+        sb.append("import java.lang.reflect.*;" + ln);
+        // 定义类并实现接口
+        sb.append("public class $Proxy0 implements " + interfaces[0].getName() + "{" + ln);
+        // 初始化变量
+        sb.append("MyInvocationHandler h;" + ln);
+        sb.append("public $Proxy0(MyInvocationHandler h) { " + ln);
+        sb.append("this.h = h;");
+        sb.append("}" + ln);
+        // 实现接口中的方法
+        for (Method m : interfaces[0].getMethods()){
+            Class<?>[] params = m.getParameterTypes();
+
+            StringBuffer paramNames = new StringBuffer();
+            StringBuffer paramValues = new StringBuffer();
+            StringBuffer paramClasses = new StringBuffer();
+
+            // 处理接口方法中的参数（准备着，下一步用）
+            for (int i = 0; i < params.length; i++) {
+                Class clazz = params[i];
+                String type = clazz.getName();
+                String paramName = toLowerFirstCase(clazz.getSimpleName());
+                paramNames.append(type + " " +  paramName);
+                paramValues.append(paramName);
+                paramClasses.append(clazz.getName() + ".class");
+                if(i > 0 && i < params.length-1){
+                    paramNames.append(",");
+                    paramClasses.append(",");
+                    paramValues.append(",");
+                }
+            }
+
+            // 处理具体方法
+            sb.append("public " + m.getReturnType().getName() + " " + m.getName() + "(" + paramNames.toString() + ") {" + ln);
+            sb.append("try{" + ln);
+            sb.append("Method m = " + interfaces[0].getName() + ".class.getMethod(\"" + m.getName() + "\",new Class[]{" + paramClasses.toString() + "});" + ln);
+            // 处理正常情况下的返回值，让回调
+            sb.append(((m.getReturnType() != void.class) ? "return " : "") + getCaseCode("this.h.invoke(this,m,new Object[]{" + paramValues + "})",m.getReturnType()) + ";" + ln);
+            // 处理异常情况
+            sb.append("}catch(Error _ex) { }");
+            sb.append("catch(Throwable e){" + ln);
+            sb.append("throw new UndeclaredThrowableException(e);" + ln);
+            sb.append("}");
+            sb.append(getReturnEmptyCode(m.getReturnType()));
+            sb.append("}");
+        }
+        sb.append("}" + ln);
+        return sb.toString();
+    }
+
+    /**
+     * 将内容输出到磁盘
+     *
+     * @param src 源文件内容
+     * @return {@link File} 文件信息
+     * @throws IOException
+     */
+    private static File write2Desk(String src) throws IOException {
+        String filePath = MyProxy.class.getResource("").getPath();
+        File f = new File(filePath + "$Proxy0.java");
+        FileWriter fw = new FileWriter(f);
+        fw.write(src);
+        fw.flush();
+        fw.close();
+        return f;
+    }
+
+    /**
+     * 把生成的.java文件编译成.class文件
+     *
+     * @param f
+     * @throws IOException
+     */
+    private static void compiler(File f) throws IOException {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        StandardJavaFileManager manage = compiler.getStandardFileManager(null,null,null);
+        Iterable iterable = manage.getJavaFileObjects(f);
+
+        JavaCompiler.CompilationTask task = compiler.getTask(null,manage,null,null,null,iterable);
+        task.call();
+        manage.close();
+    }
+
+
+
+    private static Map<Class,Class> mappings = new HashMap<Class, Class>();
+    static {
+        mappings.put(int.class,Integer.class);
+    }
+
+    /**
+     * 出现异常时返回的内容
+     *
+     * @param returnClass
+     * @return
+     */
+    private static String getReturnEmptyCode(Class<?> returnClass){
+        if(mappings.containsKey(returnClass)){
+            return "return 0;";
+        }else if(returnClass == void.class){
+            return "";
+        }else {
+            return "return null;";
+        }
+    }
+
+    private static String getCaseCode(String code,Class<?> returnClass){
+        if(mappings.containsKey(returnClass)){
+            return "((" + mappings.get(returnClass).getName() +  ")" + code + ")." + returnClass.getSimpleName() + "Value()";
+        }
+        return code;
+    }
+
+    /**
+     * 将类名的首字母转为小写
+     *
+     * @param src
+     * @return
+     */
+    private static String toLowerFirstCase(String src){
+        char [] chars = src.toCharArray();
+        if(65 <= chars[0] && chars[0] <= 90) {
+            chars[0] += 32;
+        }
+        return String.valueOf(chars);
+    }
+}
+```
+
+测试代理类
+
+```java
+public class MyProxyProcess implements MyInvocationHandler {
+
+    private ISubject target;
+    public ISubject getInstance(ISubject target){
+        this.target = target;
+        Class<?> clazz = target.getClass();
+        return (ISubject) MyProxy.newProxyInstance(new MyClassLoader(),
+                clazz.getInterfaces(),
+                this::invoke);
+    }
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        before();
+        Object invoke = method.invoke(this.target, args);
+        after();
+        return invoke;
+    }
+    private void after(){
+        System.out.println("===static proxy 前置处理===");
+    }
+    private void before(){
+        System.out.println("===static proxy 后置处理===");
+    }
+}
+```
 
 ##### 3.3  CGLib实现方式
 
 > spring底层用sm框架，sm框架有依赖cglib的包
 
+
+
+> todo
+
 #### 四、代理模式与Spring
 
 ##### 4.1  代理模式在Spring源码中的应用
 
+> Spring利用动态代理实现AOP有两个非常重要的类 JdkDynamicAopProxy 、CglibAopProxy。
+
 ##### 4.2  Spring中的代理选择原则
+
+> 当Bean有实现接口时就使用JDK代理，没有就使用CGLib代理。
+>
+> 可以通过配置强制使用CGLib代理
+>
+> ```xml
+> <aop: aspectj-autoproxy proxy-target-class = "true"/>
+> ```
 
 #### 五、代理模式的优缺点
 
-​	
+优点
+
+> - 将代理对象与真实目标对象分离
+> - 在一定程度上降低了系统耦合性，扩展性好
+> - 可以保护目标对象、增强目标对象功能
+
+缺点
+
+> 处理速度会比较慢
+>
+> 系统复杂度会增加
 
 ### 门面模式
 
@@ -1849,7 +2244,7 @@ sout(s1 == s2);// true
 >
 > 1. **行为随状态改变而改变**
 > 2. 一个操作中有大量**取决于对象状态的分支结构**
-> 3. 
+> 3. ​
 
 ##### 业务场景中的应用
 

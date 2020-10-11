@@ -1,4 +1,4 @@
-package cn.gp.designpattern.proxy.dynamic.jdk;
+package cn.gp.designpattern.d.proxy.dynamic.jdk;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
