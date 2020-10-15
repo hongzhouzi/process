@@ -12,7 +12,7 @@ public class MyTest {
     public static void main(String[] args) {
         MyProxyProcess proxy = new MyProxyProcess();
         ISubject subject = proxy.getInstance(new RealSubject());
-        subject.business();
+        subject.business("test");
 
         // 将临时代码输出到磁盘，可通过反编译tool查看到源码
         /*byte[] bytes = ProxyGenerator.generateProxyClass("$Proxy0",

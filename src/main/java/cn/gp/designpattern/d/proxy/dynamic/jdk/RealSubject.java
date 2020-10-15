@@ -6,7 +6,8 @@ package cn.gp.designpattern.d.proxy.dynamic.jdk;
  */
 public class RealSubject implements ISubject{
     @Override
-    public void business() {
-        System.out.println(" this is RealSubject");
+    public String business(String s) {
+        System.out.println(s+" this is RealSubject");
+        return s +  "this is RealSubject";
     }
 }

@@ -1,4 +1,4 @@
-package cn.gp.designpattern.decoration.cake;
+package cn.gp.designpattern.f.decoration.cake;
 
 /**
  * 具体装饰器——加香肠

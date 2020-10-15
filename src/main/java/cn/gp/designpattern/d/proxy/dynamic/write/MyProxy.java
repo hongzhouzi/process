@@ -146,6 +146,9 @@ public class MyProxy {
     private static Map<Class,Class> mappings = new HashMap<Class, Class>();
     static {
         mappings.put(int.class,Integer.class);
+        mappings.put(String.class,String.class);
+        mappings.put(double.class,Double.class);
+        mappings.put(float.class,Float.class);
     }
 
     /**

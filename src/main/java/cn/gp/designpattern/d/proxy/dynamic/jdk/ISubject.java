@@ -8,5 +8,5 @@ public interface ISubject {
     /**
      * 主要业务：如日志记录（现实中如卖房中介、婚介所）
      */
-    void business();
+    String business(String s);
 }

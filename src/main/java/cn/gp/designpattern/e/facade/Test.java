@@ -1,4 +1,4 @@
-package cn.gp.designpattern.facade;
+package cn.gp.designpattern.e.facade;
 
 /**
  * 测试类

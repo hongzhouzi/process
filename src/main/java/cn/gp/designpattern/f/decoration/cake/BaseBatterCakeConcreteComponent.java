@@ -1,4 +1,4 @@
-package cn.gp.designpattern.decoration.cake;
+package cn.gp.designpattern.f.decoration.cake;
 
 /**
  * 遵守规则的具体组件

@@ -1,7 +1,4 @@
-package cn.gp.designpattern.decoration.cake;
-
-import java.util.Arrays;
-import java.util.regex.Pattern;
+package cn.gp.designpattern.f.decoration.cake;
 
 /**
  * 具体装饰器——加鸡蛋

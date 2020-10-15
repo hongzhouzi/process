@@ -1225,6 +1225,8 @@ public class Test {
 
 > 不管目标对象是啥都可以对其进行代理，而静态代理只能对实现的接口的类进行代理。
 >
+> 动态代理会造成频繁gc
+>
 > 动态代理是通过动态生成代理类代码，**动态生成的代码中让需要代理的类“遵守规则”**，然后就对其代理，这样就避免了静态代理中需要硬编码手动遵守规则的麻烦。
 
 ##### 3.1  JDK实现方式
@@ -1574,13 +1576,349 @@ public class MyProxyProcess implements MyInvocationHandler {
 }
 ```
 
+调用过程分析
+
+```java
+// Test类
+public class Test {
+    public static void main(String[] args) {
+        ProxyProcess proxy = new ProxyProcess();
+        ISubject subject = proxy.getInstance(new RealSubject());
+        subject.business(); // ====1 调用代理入口===============
+    }
+}
+
+// 生成的代理类
+public class $Proxy0 implements ISubject {
+    MyInvocationHandler h;
+	// 实例化时将回调接口的引用记录下的
+    public $Proxy0(MyInvocationHandler var1) {
+        this.h = var1;
+    }
+// ========实际调用到这儿===============
+    public void business() {
+        try {
+            Method var1 = ISubject.class.getMethod("business");
+            // =======2 调用回调接口中的方法===========
+            this.h.invoke(this, var1, new Object[0]);
+        } catch (Error var2) {
+            ;
+        } catch (Throwable var3) {
+            throw new UndeclaredThrowableException(var3);
+        }
+
+    }
+}
+
+// ============3 调用回调接口 ===========
+public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    // 前置处理……
+    before();
+    // ==========4 回调真实主题类的业务方法==========
+    Object invoke = method.invoke(this.target, args);
+    after();
+    return invoke;
+}
+private void after(){
+    System.out.println("===static proxy 前置处理===");
+}
+private void before(){
+    System.out.println("===static proxy 后置处理===");
+}
+```
+
+
+
+
+
 ##### 3.3  CGLib实现方式
 
-> spring底层用sm框架，sm框架有依赖cglib的包
+> 添加cglib依赖（spring底层用sm框架，sm框架有依赖cglib的包）
+>
+> ```xml
+> <dependency>
+>     <groupId>cglib</groupId>
+>     <artifactId>cglib-nodep</artifactId>
+>     <version>2.2</version>
+> </dependency>
+> ```
+
+###### 真实主题类
+
+```java
+// 不用实现接口
+public class RealSubject {
+    public void business() {
+        System.out.println(" this is RealSubject");
+    }
+}
+```
+
+###### 代理类
+
+```java
+public class ProxyProcess implements MethodInterceptor {
+
+    public Object getInstance(Class<?> clazz){
+        Enhancer enhancer = new Enhancer();
+        enhancer.setSuperclass(clazz);
+        enhancer.setCallback(this);
+        return enhancer.create();
+    }
+
+    @Override
+    public Object intercept(Object o, Method method, Object[] objects, MethodProxy methodProxy) throws Throwable {
+        before();
+        Object invoke = methodProxy.invokeSuper(o, objects);
+        after();
+        return invoke;
+    }
+
+    private void after(){
+        System.out.println("=== proxy 前置处理===");
+    }
+    private void before(){
+        System.out.println("=== proxy 后置处理===");
+    }
+}
+```
+
+###### 测试类
+
+```java
+public class Test {
+    public static void main(String[] args) {
+        // 利用CGLib的代理类可将内存中的.class文件写入本地磁盘
+        System.setProperty(DebuggingClassWriter.DEBUG_LOCATION_PROPERTY, "./cglib_proxy_class/");
+
+        RealSubject obj = (RealSubject) new ProxyProcess().getInstance(RealSubject.class);
+        obj.business();
+    }
+}
+```
+
+##### 3.4 CGLib代理分析
+
+> 查看CGLib生成的代理类可以主要看到生成了三个类
+>
+> ![CGLib代理类](designpattern_notes.assets/CGLib代理类.png)
+>
+> 其中RealSubject$$EnhancerByCGLIB$$b6c07846.class代理类继承了需要代理的类
+>
+> ```java
+> public class RealSubject$$EnhancerByCGLIB$$b6c07846 extends RealSubject implements Factory {
+>     // ……
+>     static void CGLIB$STATICHOOK1() {
+>         CGLIB$THREAD_CALLBACKS = new ThreadLocal();
+>         // ……
+>         CGLIB$business$0$Proxy = MethodProxy.create(var1, var0, "()V", "business", "CGLIB$business$0");
+>     }
+> // 代理方法 methodProxy.invokeSuper()会调用
+>     final void CGLIB$business$0() {
+>         super.business();
+>     }
+> // 被代理方法 methodProxy.invoke()调用。拦截器中调用会发生死循环（一直在调用拦截器）
+>     public final void business() {
+>         MethodInterceptor var10000 = this.CGLIB$CALLBACK_0;
+>         if (this.CGLIB$CALLBACK_0 == null) {
+>             CGLIB$BIND_CALLBACKS(this);
+>             var10000 = this.CGLIB$CALLBACK_0;
+>         }
+> 
+>         if (var10000 != null) {
+>             // 调用拦截器
+>             var10000.intercept(this, CGLIB$business$0$Method, CGLIB$emptyArgs, CGLIB$business$0$Proxy);
+>         } else {
+>             super.business();
+>         }
+>     }
+>     // ……
+> }
+> ```
+>
+> 可以看到代理类中重写了RealSubject类中方法
+>
+> **对象调用过程**：调用生成代理对象中的 business()   ->  调用MethodInterceptor接口中的intercept() 【前置后置处理就在这儿】 ->    methodProxy.invokeSuper() 【通过它调用到真实主题类中方法】 ->    CGLIB$business$0$Method  ->   被代理对象的business()
+>
+> **调用过程代码分析**
+>
+> ```java
+> // Test 类
+> public static void main(String[] args) {
+>     // 利用CGLib的代理类可将内存中的.class文件写入本地磁盘
+>     System.setProperty(DebuggingClassWriter.DEBUG_LOCATION_PROPERTY, "./cglib_proxy_class/");
+> 
+>     RealSubject obj = (RealSubject) new ProxyProcess().getInstance(RealSubject.class);
+>     obj.business(); // ============ 1 入口=========
+> }
+> 
+> // CGLib生成-代理类
+> public class RealSubject$$EnhancerByCGLIB$$b6c07846 extends RealSubject implements Factory {
+>     // ……
+>     static void CGLIB$STATICHOOK1() {
+>         CGLIB$THREAD_CALLBACKS = new ThreadLocal();
+>         // ……
+>         CGLIB$business$0$Proxy = MethodProxy.create(var1, var0, "()V", "business", "CGLIB$business$0");
+>     }
+> // 代理方法 methodProxy.invokeSuper()会调用
+>     final void CGLIB$business$0() {
+>         super.business();
+>     }
+>     // ============2 调用1实际上调用到了代理类的这个重写的方法==========
+> // 被代理方法 methodProxy.invoke()调用。拦截器中调用会发生死循环（一直在调用拦截器）
+>     public final void business() {
+>         MethodInterceptor var10000 = this.CGLIB$CALLBACK_0;
+>         if (this.CGLIB$CALLBACK_0 == null) {
+>             CGLIB$BIND_CALLBACKS(this);
+>             var10000 = this.CGLIB$CALLBACK_0;
+>         }
+> // ============ 3 调用 方法拦截器中的方法============
+>         if (var10000 != null) {
+>             // 调用拦截器
+>             var10000.intercept(this, CGLIB$business$0$Method, CGLIB$emptyArgs, CGLIB$business$0$Proxy);
+>         } else {
+>             super.business();
+>         }
+>     }
+>     // ……
+> }
+> 
+> // 代理处理类
+> public class ProxyProcess implements MethodInterceptor {
+> 
+>     public Object getInstance(Class<?> clazz){
+>         Enhancer enhancer = new Enhancer();
+>         enhancer.setSuperclass(clazz);
+>         enhancer.setCallback(this);
+>         return enhancer.create();
+>     }
+> // ================3 拦截器中的intercept()========
+> // ！！！！！！！ 前置、后置任务也都在这儿处理 ！！！！！！！
+>     @Override
+>     public Object intercept(Object o, Method method, Object[] objects, MethodProxy methodProxy) throws Throwable {
+>         before();
+>         // ==========4 调用methodProxy.invokeSuper
+>         Object invoke = methodProxy.invokeSuper(o, objects);
+>         after();
+>         return invoke;
+>     }
+> 
+>     private void after(){
+>         System.out.println("=== proxy 前置处理===");
+>     }
+>     private void before(){
+>         System.out.println("=== proxy 后置处理===");
+>     }
+> }
+> 
+> 
+> // net.sf.cglib.proxy.MethodProxy#invokeSuper
+> public Object invokeSuper(Object obj, Object[] args) throws Throwable {
+>     try {
+>         this.init();
+>         MethodProxy.FastClassInfo fci = this.fastClassInfo;
+>         // =========5 调用被代理类的FastClass类===
+>         return fci.f2.invoke(fci.i2, obj, args);
+>     } catch (InvocationTargetException var4) {
+>         throw var4.getTargetException();
+>     }
+> }
+> 
+> // CGLib生成-被代理类的FastClass类
+> // 传来的参数 var1 = 15; var2 = 实例化的 RealSubject$$EnhancerByCGLIB$$24be692e
+> public Object invoke(int var1, Object var2, Object[] var3) throws InvocationTargetException {
+>     24be692e var10000 = (24be692e)var2;
+>     int var10001 = var1;
+> 
+>     try {
+>         // 根据 index 直接定位执行方法
+>         switch(var10001) {
+>                 // ……
+>             case 15:
+>                 // ===========6 调用代理类的FastClass======
+>                 var10000.CGLIB$business$0();
+>                 return null;
+>         }
+>     }
+> }
+> 
+> // CGLib生成-代理类
+> final void CGLIB$business$0() {
+>     // ============7 调用到被代理类的business()（真实主题类中的）
+>     super.business();
+> }
+> // ========= 然后往上返回就结束了========
+> ```
+>
+> 
+
+> CGLib代理执行效率之所以比JDK代理高，是因为CGLib采用了FastClass机制（简单理解：为代理类和被代理类各生成一个类，这个类会为代理类或被代理类的方法分配一个index(int类型)；这个index当作一个入参，**FastClass就可以直接定位要调用的方法并直接调用，省去了反射调用，所以调用效率比JDK代理通过反射调用高**）
+>
+> RealSubject$$FastClassByCGLIB$$7fe7be4a.class 是代理类的FastClass
+>
+> RealSubject$$EnhancerByCGLIB$$b6c07846$$FastClassByCGLIB$$4d2aad20.class 是被代理类的FastClass
+
+**其余要点分析**
+
+> FastClass并不是更代理类一起生成的，而是在第一次执行MethodProxy的invoke()或invokeSuper()时生成的，并放在了缓存中。
+
+```java
+// net.sf.cglib.proxy.MethodProxy#invokeSuper
+// MethodProxy的invoke()和invokeSuper()都调用了init()
+public Object invokeSuper(Object obj, Object[] args) throws Throwable {
+    try {
+        this.init();
+        MethodProxy.FastClassInfo fci = this.fastClassInfo;
+        return fci.f2.invoke(fci.i2, obj, args);
+    } catch (InvocationTargetException var4) {
+        throw var4.getTargetException();
+    }
+}
+
+public Object invoke(Object obj, Object[] args) throws Throwable {
+    try {
+        this.init();
+        MethodProxy.FastClassInfo fci = this.fastClassInfo;
+        // 调用FastClass
+        return fci.f1.invoke(fci.i1, obj, args);
+    } catch (InvocationTargetException var4) {
+        throw var4.getTargetException();
+    } catch (IllegalArgumentException var5) {
+        if (this.fastClassInfo.i1 < 0) {
+            throw new IllegalArgumentException("Protected method: " + this.sig1);
+        } else {
+            throw var5;
+        }
+    }
+}
+
+private void init() {
+    if (this.fastClassInfo == null) {
+        Object var1 = this.initLock;
+        synchronized(this.initLock) {
+            if (this.fastClassInfo == null) {
+                MethodProxy.CreateInfo ci = this.createInfo;
+                MethodProxy.FastClassInfo fci = new MethodProxy.FastClassInfo();
+                // 如果在缓存就取出，没有在缓存就生成新的FastClass
+                fci.f1 = helper(ci, ci.c1);
+                fci.f2 = helper(ci, ci.c2);
+                // 获取方法的index
+                fci.i1 = fci.f1.getIndex(this.sig1);
+                fci.i2 = fci.f2.getIndex(this.sig2);
+                this.fastClassInfo = fci;
+            }
+        }
+    }
+}
+```
+
+##### 3.5 JDK和CGLib动态代理对比
+
+> 1. JDK **实现被代理对象的接口**，CGLib **继承被代理对象**（所以不能代理有final修饰的）；
+> 2. 生成字节码层面：JDK和CGLib都在运行期生成字节码，JDK直接写字节码，CGLib使用ASM框架写字节码，**CGLib实现更复杂、生成代理类比JDK效率低**；
+> 3. 执行代理类层面：JDK代理方法通过反射机制调用，CGLib通过FastClass机制直接调用方法，**CGLib执行效率更高**。
 
 
-
-> todo
 
 #### 四、代理模式与Spring
 
@@ -1612,9 +1950,13 @@ public class MyProxyProcess implements MyInvocationHandler {
 >
 > 系统复杂度会增加
 
+
+
+
+
 ### 门面模式
 
-> 又叫外观模式，提供了一个统一的接口用来访问子系统中的一群接口。主要特征是定义了一个高级接口让子系统更容易使用，属于结构性模式。
+> 又叫外观模式，**提供了一个统一的接口用来访问子系统中的一群接口**。主要特征是定义了一个高级接口让子系统更容易使用，属于结构性模式。
 
 #### 应用场景
 
@@ -1766,9 +2108,9 @@ public abstract class JdbcUtils {
 
 > 装饰器模式（Decorator Pattern）也叫包装模式(Wrapper Pattern)，是指不改变原有对象的基础之上，将功能附加到对象上，提供了比继承更有弹性的替代方案（扩展原有对象的功能）。属于结构型模式。
 >
-> 核心：功能扩展，可以透明且动态地扩展类的功能。
+> 核心：功能扩展，可以**透明且动态地扩展类的功能**。
 >
-> 写法思想：通过构造器传参，在之前处理的基础之上累加功能
+> 写法思想：**通过构造器传参，在之前处理的基础之上累加功能** ，通过构造函数嵌套对象。
 
 
 
@@ -1793,11 +2135,79 @@ public abstract class JdbcUtils {
 >
 > 实现原理：
 >
-> XX
+> 定义抽象装饰器，各个具体装饰器实现抽象装饰器还通过构造函数传参，然后调用父类的方法，在之前处理的基础上做累加。具体调用过程是从最后添加上的装饰器依次调用父类的方法，就达到了在原基础上做累加的效果。组件是基础，装饰器是扩展(可有可无)（组件是定义基础配置、装饰器是定义额外配置）
 >
 > 类图：
 >
-> 
+> ![装饰器UML](designpattern_notes.assets/装饰器UML.png)
+
+```java
+// 抽象组件
+public abstract class AbsBatterCakeComponent {
+    abstract String getMsg();
+    abstract int getPrice();
+}
+
+// 抽象装饰器
+public abstract class AbsBatterCakeDecorator extends AbsBatterCakeComponent {
+    // 静态代理
+    private AbsBatterCakeComponent batterCakeComponent;
+
+    public AbsBatterCakeDecorator(AbsBatterCakeComponent batterCakeComponent) {
+        this.batterCakeComponent = batterCakeComponent;
+    }
+
+    /**
+     * 用来扩展的抽象装饰器
+     */
+    abstract void doSomething();
+
+    @Override
+    String getMsg() {
+        return this.batterCakeComponent.getMsg();
+    }
+
+    @Override
+    int getPrice() {
+        return this.batterCakeComponent.getPrice();
+    }
+}
+
+// =============== 具体组件器 ===========
+public class BaseBatterCakeConcreteComponent extends AbsBatterCakeComponent {
+    @Override
+    String getMsg() {
+        return "煎饼";
+    }
+
+    @Override
+    int getPrice() {
+        return 5;
+    }
+}
+
+// =============== 具体装饰器 ===========
+public class EggDecorator extends AbsBatterCakeDecorator {
+    public EggDecorator(AbsBatterCakeComponent batterCakeComponent) {
+        super(batterCakeComponent);
+    }
+
+    @Override
+    void doSomething() {
+
+    }
+
+    @Override
+    String getMsg() {
+        return super.getMsg() + "+1个鸡蛋";
+    }
+
+    @Override
+    int getPrice() {
+        return super.getPrice() + 1;
+    }
+}
+```
 
 
 
@@ -1834,11 +2244,12 @@ public abstract class JdbcUtils {
 
 > 又称为轻量级模式，是对象池的一种实现方式。其宗旨是**共享细粒度对象**，将多个对同一对象的访问集中起来，不必为每个访问者创建一个单独的对象，以此来降低内存的消耗。属于结构型模式。
 >
+> 本质：**缓存共享对象，降低内存消耗**。
+>
 > 享元模式把一个对象的状态分为**内部状态**和**外部状态**，**内部状态是不变的**，外部状态是变化的，然后通过**共享不变的部分**达到减少对象数量并节约内存的目的。
 >
 > 享元模式其实是工厂模式的一个改进机制，它同样要求创建一个或一组对象，并且就是通过工厂方法生成的对象，只不过享元模式中为工厂方法增加了缓存。
 >
-> todo 没太理解到它的定义与缓存之间的联系
 
 #### 应用场景
 
@@ -1855,6 +2266,56 @@ public abstract class JdbcUtils {
 > 具体享元角色(ConcreteFlyweight)：实现抽象角色定义的业务。该角色的内部状态应与环境无关，不能出现一个操作改变同时改变了内外部状态。
 >
 > 享元工厂(FlyweightFactory)：管理享元对象池和创建享元对象。
+
+```java
+// ============== 抽象享元角色 =============
+public interface IFlyweight {
+    void operation(String extrinsicState);
+}
+
+// =============== 具体享元角色 ============
+public class ConcreteFlyweight implements IFlyweight {
+    private String intrinsicState;
+
+    public ConcreteFlyweight(String intrinsicState) {
+        this.intrinsicState = intrinsicState;
+    }
+
+    @Override
+    public void operation(String extrinsicState) {
+        System.out.println("Object address: " + System.identityHashCode(this));
+        System.out.println("IntrinsicState: " + this.intrinsicState);
+        System.out.println("ExtrinsicState: " + extrinsicState);
+    }
+}
+
+// =============== 享元工厂 ============
+public class FlyweightFactory {
+    private static Map<String, IFlyweight> pool = new HashMap<>();
+
+    // 因为内部状态具备不变性，因此作为缓存的键
+    public static IFlyweight getFlyweight(String intrinsicState) {
+        if (!pool.containsKey(intrinsicState)) {
+            IFlyweight flyweight = new ConcreteFlyweight(intrinsicState);
+            pool.put(intrinsicState, flyweight);
+        }
+        return pool.get(intrinsicState);
+    }
+}
+
+// =============== test ============
+public class Test {
+    public static void main(String[] args) {
+        IFlyweight flyweight1 = FlyweightFactory.getFlyweight("aa");
+        IFlyweight flyweight2 = FlyweightFactory.getFlyweight("bb");
+        flyweight1.operation("a");// ==
+        flyweight1.operation("a1");// ==和上面那个用的同一个内部对象
+        flyweight2.operation("b");
+    }
+}
+```
+
+
 
 #### 源码中的应用
 
@@ -1888,11 +2349,15 @@ sout(s1 == s2);// true
 
 > 关注内外部状态、关注线程安全性问题使系统和程序逻辑复杂化。
 
+
+
 ### 组合模式
 
 > 也称为整体-部分模式，它的宗旨是将单个对象（叶子节点）和组合对象（根节点）用相同的接口进行表示。
 >
 > 作用：使客户端对单个对象和组合对象保持一致的处理方式。结构型模式。
+>
+> 核心：**将整合和局部的处理统一到一个抽象中**，整体和局部没有共同特性且**满足contains-a关系**，客户端只需要同一套api即可。
 >
 > **注意组合关系和聚合关系的区别**
 >
@@ -1919,7 +2384,96 @@ sout(s1 == s2);// true
 
 #### 透明组合模式的写法
 
+> aa
+
+```java
+
+```
+
+
+
 #### 安全组合模式的写法
+
+> 遵循最少知道原则
+
+```java
+// ============= 抽象根节点 ===============
+public abstract class AbsComponent {
+    protected String name;
+
+    public AbsComponent(String name) {
+        this.name = name;
+    }
+
+    public abstract String operation();
+}
+
+// ============= 树节点 ===============
+public class Composite extends AbsComponent {
+    private List<AbsComponent> mComponents;
+
+    public Composite(String name) {
+        super(name);
+        this.mComponents = new ArrayList<AbsComponent>();
+    }
+
+    @Override
+    public String operation() {
+        StringBuilder builder = new StringBuilder(this.name);
+        for (AbsComponent component : this.mComponents) {
+            builder.append("\n");
+            builder.append(component.operation());
+        }
+        return builder.toString();
+    }
+
+
+    public boolean addChild(AbsComponent component) {
+        return this.mComponents.add(component);
+    }
+}
+
+
+// ============= 叶子节点 ===============
+public class Leaf extends AbsComponent {
+
+    public Leaf(String name) {
+        super(name);
+    }
+
+    @Override
+    public String operation() {
+        return this.name;
+    }
+}
+
+// ============ test =================
+public class Test {
+    public static void main(String[] args) {
+        // 遵循最少知道原则，如下只能在树枝节点上加叶子，不能通过叶子加叶子节点
+        // 来一个根节点
+        Composite root = new Composite("root");
+        // 来一个树枝节点
+        Composite branchA = new Composite("---branchA");
+        Composite branchB = new Composite("------branchB");
+        // 来一个叶子节点
+        AbsComponent leafA = new Leaf("------leafA");
+        AbsComponent leafB = new Leaf("---------leafB");
+        AbsComponent leafC = new Leaf("---leafC");
+
+        root.addChild(branchA);
+        root.addChild(leafC);
+        branchA.addChild(leafA);
+        branchA.addChild(branchB);
+        branchB.addChild(leafB);
+
+        String result = root.operation();
+        System.out.println(result);
+    }
+}
+```
+
+
 
 #### 源码中的应用
 
@@ -1940,7 +2494,7 @@ sout(s1 == s2);// true
 
 
 
-###适配器模式
+### 适配器模式
 
 > 又叫变压器模式，它能够将一个类的接口变成客户端所期望的另一种接口，能够让两个接口原本不匹配的匹配上。结构型设计模式
 
@@ -2244,7 +2798,7 @@ sout(s1 == s2);// true
 >
 > 1. **行为随状态改变而改变**
 > 2. 一个操作中有大量**取决于对象状态的分支结构**
-> 3. ​
+> 3. 
 
 ##### 业务场景中的应用
 

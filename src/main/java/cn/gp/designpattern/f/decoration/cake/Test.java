@@ -1,4 +1,4 @@
-package cn.gp.designpattern.decoration.cake;
+package cn.gp.designpattern.f.decoration.cake;
 
 /**
  * @author hongzhou.wei
@@ -11,6 +11,10 @@ public class Test {
         // 加个鸡蛋
         batterCake = new EggDecorator(batterCake);
         // 加份香肠
+        batterCake = new SausageDecorator(batterCake);
+        batterCake = new SausageDecorator(batterCake);
+        batterCake = new SausageDecorator(batterCake);
+        batterCake = new SausageDecorator(batterCake);
         batterCake = new SausageDecorator(batterCake);
 
         // 消费
