@@ -24,6 +24,5 @@ public class Test {
 
         String result = root.operation();
         System.out.println(result);
-
     }
 }

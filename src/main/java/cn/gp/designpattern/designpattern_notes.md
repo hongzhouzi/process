@@ -1724,7 +1724,7 @@ public class Test {
 >             CGLIB$BIND_CALLBACKS(this);
 >             var10000 = this.CGLIB$CALLBACK_0;
 >         }
-> 
+>
 >         if (var10000 != null) {
 >             // 调用拦截器
 >             var10000.intercept(this, CGLIB$business$0$Method, CGLIB$emptyArgs, CGLIB$business$0$Proxy);
@@ -1747,11 +1747,11 @@ public class Test {
 > public static void main(String[] args) {
 >     // 利用CGLib的代理类可将内存中的.class文件写入本地磁盘
 >     System.setProperty(DebuggingClassWriter.DEBUG_LOCATION_PROPERTY, "./cglib_proxy_class/");
-> 
+>
 >     RealSubject obj = (RealSubject) new ProxyProcess().getInstance(RealSubject.class);
 >     obj.business(); // ============ 1 入口=========
 > }
-> 
+>
 > // CGLib生成-代理类
 > public class RealSubject$$EnhancerByCGLIB$$b6c07846 extends RealSubject implements Factory {
 >     // ……
@@ -1782,10 +1782,10 @@ public class Test {
 >     }
 >     // ……
 > }
-> 
+>
 > // 代理处理类
 > public class ProxyProcess implements MethodInterceptor {
-> 
+>
 >     public Object getInstance(Class<?> clazz){
 >         Enhancer enhancer = new Enhancer();
 >         enhancer.setSuperclass(clazz);
@@ -1802,7 +1802,7 @@ public class Test {
 >         after();
 >         return invoke;
 >     }
-> 
+>
 >     private void after(){
 >         System.out.println("=== proxy 前置处理===");
 >     }
@@ -1810,8 +1810,8 @@ public class Test {
 >         System.out.println("=== proxy 后置处理===");
 >     }
 > }
-> 
-> 
+>
+>
 > // net.sf.cglib.proxy.MethodProxy#invokeSuper
 > public Object invokeSuper(Object obj, Object[] args) throws Throwable {
 >     try {
@@ -1823,13 +1823,13 @@ public class Test {
 >         throw var4.getTargetException();
 >     }
 > }
-> 
+>
 > // CGLib生成-被代理类的FastClass类
 > // 传来的参数 var1 = 15; var2 = 实例化的 RealSubject$$EnhancerByCGLIB$$24be692e
 > public Object invoke(int var1, Object var2, Object[] var3) throws InvocationTargetException {
 >     24be692e var10000 = (24be692e)var2;
 >     int var10001 = var1;
-> 
+>
 >     try {
 >         // 根据 index 直接定位执行方法
 >         switch(var10001) {
@@ -1841,7 +1841,7 @@ public class Test {
 >         }
 >     }
 > }
-> 
+>
 > // CGLib生成-代理类
 > final void CGLIB$business$0() {
 >     // ============7 调用到被代理类的business()（真实主题类中的）
@@ -2387,14 +2387,107 @@ sout(s1 == s2);// true
 > aa
 
 ```java
+// ============= 抽象根节点 ===============
+public abstract class AbsComponent {
+    protected String name;
 
+    public AbsComponent(String name) {
+        this.name = name;
+    }
+
+    public abstract String operation();
+
+    public boolean addChild(AbsComponent component) {
+        throw new UnsupportedOperationException("addChild not supported!");
+    }
+
+    public boolean removeChild(AbsComponent component) {
+        throw new UnsupportedOperationException("removeChild not supported!");
+    }
+
+    public AbsComponent getChild(int index) {
+        throw new UnsupportedOperationException("getChild not supported!");
+    }
+}
+
+// ============= 树节点 ===============
+public class Composite extends AbsComponent {
+    private List<AbsComponent> mAbsComponents;
+
+    public Composite(String name) {
+        super(name);
+        this.mAbsComponents = new ArrayList<>();
+    }
+
+    @Override
+    public String operation() {
+        StringBuilder builder = new StringBuilder(this.name);
+        for (AbsComponent component : this.mAbsComponents) {
+            builder.append("\n");
+            builder.append(component.operation());
+        }
+        return builder.toString();
+    }
+
+    @Override
+    public boolean addChild(AbsComponent component) {
+        return this.mAbsComponents.add(component);
+    }
+
+    @Override
+    public boolean removeChild(AbsComponent component) {
+        return this.mAbsComponents.remove(component);
+    }
+
+    @Override
+    public AbsComponent getChild(int index) {
+        return this.mAbsComponents.get(index);
+    }
+}
+
+// ============= 叶子节点 ===============
+public class Leaf extends AbsComponent {
+
+    public Leaf(String name) {
+        super(name);
+    }
+
+    @Override
+    public String operation() {
+        return this.name;
+    }
+}
+
+// ============== test ================
+public class Test {
+    public static void main(String[] args) {
+        // 来一个根节点
+        AbsComponent root = new Composite("root");
+        // 来一个树枝节点
+        AbsComponent branchA = new Composite("---branchA");
+        AbsComponent branchB = new Composite("------branchB");
+        // 来一个叶子节点
+        AbsComponent leafA = new Leaf("------leafA");
+        AbsComponent leafB = new Leaf("---------leafB");
+        AbsComponent leafC = new Leaf("---leafC");
+
+        root.addChild(branchA);
+        root.addChild(leafC);
+        branchA.addChild(leafA);
+        branchA.addChild(branchB);
+        branchB.addChild(leafB);
+
+        String result = root.operation();
+        System.out.println(result);
+    }
+}
 ```
 
 
 
 #### 安全组合模式的写法
 
-> 遵循最少知道原则
+> 遵循最少知道原则。和上面透明写法相比叶子节点不能添加叶子节点，但上面透明写法往叶子节点添加叶子节点后虽然能够通过语法检查，但在运行时会报错，相比安全写法就没那么安全。
 
 ```java
 // ============= 抽象根节点 ===============
@@ -2432,7 +2525,6 @@ public class Composite extends AbsComponent {
         return this.mComponents.add(component);
     }
 }
-
 
 // ============= 叶子节点 ===============
 public class Leaf extends AbsComponent {
@@ -2477,7 +2569,7 @@ public class Test {
 
 #### 源码中的应用
 
->  HashMap中addAll(Map)
+>  HashMap中addAll(Map)：Map与Map中的Entry是contains-a关系，Map是整体Entity是局部。addAll即将整体和局部组合。
 >
 >  ArrayList中addAll(List)
 >
@@ -2546,9 +2638,143 @@ public class Test {
 
 #### 通用模型
 
+> 主要包含4种角色
+>
+> 1. 实现（Implementor）：确定实现维度的基本操作，提供给Abstraction使用，一般为接口或抽象类。
+>
+> 2. 具体实现（ConcreteImplementor）：Implementor的具体实现。
+>
+> 3. 抽象（Abstraction）：该类持有一个对实现角色的引用，抽象角色中的方法需要实现角色来实现，它一般为抽象类，构造函数规定子类要传入一个实现对象。
+>
+> 4. 修正抽象（RefinedAbstraction）：Abstraction的具体实现，对Abstraction的方法进行完善和扩展。
+>
+>    ![](designpattern_notes.assets/桥接模式UML.png)
+
+```java
+// =========== 实现 ==============
+public interface IImplementor {
+    void operationImpl();
+}
+
+// ============ 具体实现 ===========
+public class ConcreteImplementorA implements IImplementor {
+
+    @Override
+    public void operationImpl() {
+        System.out.println("I'm ConcreteImplementor A");
+    }
+}
+
+// ============ 抽象 ===========
+public abstract class Abstraction {
+    protected IImplementor mImplementor;
+
+    public Abstraction(IImplementor implementor) {
+        this.mImplementor = implementor;
+    }
+
+    public void operation() {
+        this.mImplementor.operationImpl();
+    }
+}
+// ============= 修正抽象 ====================
+public class RefinedAbstraction extends Abstraction {
+
+    public RefinedAbstraction(IImplementor implementor) {
+        super(implementor);
+    }
+
+    @Override
+    public void operation() {
+        super.operation();
+        System.out.println("refined operation");
+    }
+}
+
+// ============ test ==================
+public class Test {
+    public static void main(String[] args) {
+        // 来一个实现化角色
+        IImplementor imp = new ConcreteImplementorA();
+        // 来一个抽象化角色，聚合实现
+        Abstraction abs = new RefinedAbstraction(imp);
+        // 执行操作
+        abs.operation();
+    }
+}
+```
+
+> 如下情况，将消息类型与紧急程度通过继承的方式实现就非常冗余，使用桥接模式将它们组合起来就非常方便了。
+
+<img src="designpattern_notes.assets/桥接组合消息类型与紧急程度1.png" alt="桥接组合" style="zoom:70%;" />
+
+
+
+![image-20201017174542010](designpattern_notes.assets/桥接组合消息类型与紧急程度2.png)
+
+```java
+
+public interface IMessage {
+    //发送消息的内容和接收人
+    void send(String message,String toUser);
+}
+
+public class SmsMessage implements IMessage {
+    @Override
+    public void send(String message, String toUser) {
+        System.out.println("使用短信消息发送" + message + "给" + toUser);
+    }
+}
+
+public abstract class AbastractMessage {
+    private IMessage message;
+
+    public AbastractMessage(IMessage message) {
+        this.message = message;
+    }
+    void sendMessage(String message,String toUser){
+        this.message.send(message,toUser);
+    }
+}
+
+public class UrgencyMessage extends AbastractMessage {
+    public UrgencyMessage(IMessage message) {
+        super(message);
+    }
+
+    @Override
+    void sendMessage(String message, String toUser){
+        message = "【加急】" + message;
+        super.sendMessage(message,toUser);
+    }
+
+    public Object watch(String messageId){
+        return null;
+    }
+}
+
+// ============= test =====================
+public class Test {
+    public static void main(String[] args) {
+        // 发送信息方式 + 紧急程度 组合
+        IMessage message = new SmsMessage();
+        AbastractMessage abastractMessage = new NomalMessage(message);
+        abastractMessage.sendMessage("XX申请","魏总");
+
+        message = new EmailMessage();
+        abastractMessage = new UrgencyMessage(message);
+        abastractMessage.sendMessage("XX申请","魏总");
+    }
+}
+```
+
+
+
 #### 源码中的应用
 
-> JDBC API（与数据库无关）与Driver（与数据库有关，可细分为MySQLDriver、OracleDriver）之间通过DriverManager桥接上
+> JDBC API中Driver类就是桥接模式，在用Class.forName()方法时可以动态加载各个数据库厂商的Driver类，加载完Driver后通过DriverManager获取连接与JDBC API建立关系。JDBC API（与数据库无关）与Driver（与数据库有关，可细分为MySQLDriver、OracleDriver）之间通过DriverManager桥接上。
+>
+> <img src="designpattern_notes.assets/image-20201017180239172.png" alt="image-20201017180239172" style="zoom:80%;" />
 
 #### 优缺点
 
@@ -2571,24 +2797,80 @@ public class Test {
 
 #### 定义
 
-> 委派模式又叫委托模式。**负责任务的调度和分配，将任务的分配和执行分离**。可以看做是一种特殊情况下的静态代理的全权代理。行为型模式，不属于GOF23。
+> 委派模式又叫委托模式，面向对象的设计模式，允许对象组合实现与继承相同的功能。**负责任务的调度和分配，将任务的分配和执行分离**。可以看做是一种特殊情况下的静态代理的全权代理。行为型模式，不属于GOF23。
 
 #### 应用场景
 
 > 1. 委派对象本身不知道如何处理一个任务或请求，就把请求交给其他对象来处理。
 > 2. 程序解耦。
 
+#### 通用写法
+
+> 共3种角色
+>
+> 1. 抽象任务角色（Task）：抽象接口，有若干实现类
+> 2. 委派者角色（Delegate）：在各个角色和实例之间做出决策，并调用具体的实现方法
+> 3. 具体任务角色（Concrete）：真正执行任务的角色
+>
+> 现实生活中的例子：Boss给Leader下达任务，Leader根据任务情况将任务交给不同的Engineer处理。Engineer把任务完成后再由Leader将处理结果报告给Boss。
+>
+> ![image-20201017184428521](designpattern_notes.assets/image-20201017184428521-委派模式UML.png)
+
+```java
+public interface Task {
+    void doTask();
+}
+
+public class ConcreteA implements Task {
+    @Override
+    public void doTask() {
+        System.out.println("具体执行者 , A");
+    }
+}
+
+public class ConcreteB implements Task {
+    @Override
+    public void doTask() {
+        System.out.println("具体执行者 , B");
+    }
+}
+
+public class Delegate implements Task{
+    @Override
+    public void doTask() {
+        System.out.println("开始分配任务");
+        Task task = null;
+        // 根据不同情况，将任务交个不同真正干活的执行
+        if (new Random().nextBoolean()){
+            task = new ConcreteA();
+        }else{
+            task = new ConcreteB();
+        }
+        task.doTask();
+        System.out.println("结束分配任务");
+    }
+}
+
+public class Test {
+    public static void main(String[] args) {
+        new Delegate().doTask();
+    }
+}
+
+```
+
+
+
 #### 业务场景中的应用
 
 #### 源码中的体现
 
-> JDK类加载时使用双亲委派机制，若父类不为空就加载父类的，父类为空就加载当前的。（将加载任务分配给其他对象处理）。
+> - JDK类加载时使用双亲委派机制，若父类不为空就加载父类的，父类为空就加载当前的。（将加载任务分配给其他对象处理）。
 >
-> Method#invoke()，委托给MethodAccessor.invoke()回调方法。与静态代理的区别在于，静态代理在代理前后有执行其他逻辑，而委派拿到代理返回的结果后就返回了，在前后没有其他执行逻辑。（称为静态代理的全权代理）有点像门面模式，但门面模式注重的是组合，是一种结构型；委托注重的是分配给谁做，是一种行为模式
->
-> BeanDefinitionParserDelegate中解析文件内容时委派
->
-> DispatcherServlet#doDispatch()根据请求中传来的URL找到对应的处理方法，委派给对应的方法处理。（在init()中注册了URL和处理方法的对应关系）
+> - Spring中的DispatcherServlet#doDispatch()根据请求中传来的URL找到对应的处理方法，委派给对应的方法处理。（在init()中注册了URL和处理方法的对应关系）
+> - BeanDefinitionParserDelegate中解析文件内容时根据不同解析类型委派不同逻辑解析
+> - Method#invoke()，委托给MethodAccessor.invoke()回调方法。与静态代理的区别在于，静态代理在代理前后有执行其他逻辑，而委派拿到代理返回的结果后就返回了，在前后没有其他执行逻辑。（称为静态代理的全权代理）有点像门面模式，但门面模式注重的是组合，是一种结构型；委托注重的是分配给谁做，是一种行为模式
+> - 另外，源码中以Delegate结尾的一般都用到了委派模式
 
 #### 优缺点
 
@@ -2629,9 +2911,60 @@ public class Test {
 > 1. 一次性实现的一个算法不变的部分，并将可变的行为留给子类来实现。
 > 2. 各子类中公共的行为被提取出来并集中到一个公共的父类中，从而避免代码重复。
 >
-> 一般会设置钩子方法
+> 一般会设置钩子方法（让调用者根据需要干预模板中的执行流程，使得控制行为流程更加灵活）
+
+#### 通用写法
+
+> 包含2种角色
+>
+> 1. 抽象模板（AbstractClass）：定义了一套算法框架/流程
+> 2. 具体实现（ConcreteClass）：根据不同需求对算法框架/流程的某些步骤进行的实现
+
+```java
+// ========== 抽象模板 ============
+public abstract class AbstractClass {
+    // 声明为final方法，避免子类覆写
+    public final void templateMehthod() {
+        this.step1();
+        this.step2();
+        this.step3();
+    }
+
+    protected void step1() {
+        System.out.println("AbstractClass:step1");
+    }
+
+    protected void step2() {
+        System.out.println("AbstractClass:step2");
+    }
+
+    protected void step3() {
+        System.out.println("AbstractClass:step3");
+    }
+}
+
+// ================== 具体实现类 ===========
+public class ConcreteClassA extends AbstractClass {
+    @Override
+    protected void step1() {
+        System.out.println("ConcreateClassA:step1");
+    }
+}
+
+// ============== Test ===================
+public class Test {
+    public static void main(String[] args) {
+        AbstractClass abc = new ConcreteClassA();
+        abc.templateMehthod();
+    }
+}
+```
+
+
 
 #### 利用模板模式重构JDBC操作业务场景
+
+> 一个JDBC模板类中封装了所有JDBC操作。以查询为例，每次查询不同返回的数据结构也不同。所以就需要根据不同的数据封装不同的实体对象，但封装前后的处理流程是不变的，这种情况就适合用模板模式。
 
 #### 源码中的体现
 
@@ -2661,24 +2994,205 @@ public class Test {
 
 > 策略模式又叫政策模式，它将定义的算法家族分别封装起来，让它们之间可以互相替换，从而让算法的变化不会影响到使用算法的用户。
 >
-> 可以避免多重分支的if...else和switch语句，行为型模式。	
+> 可以避免多重分支的if...else和switch语句，行为型模式。
+>
+> 使用继承和多态机制使得同一行为在不同场景下具备不同实现。	
 
 #### 应用场景
 
 > 生活中：阶梯个税、支付方式的选择。
 >
-> 1. 系统需要动态地在几种算法中选择一种。
+> 1. 系统需要动态地在几种算法中选择一种（算法需要自由切换）。
 > 2. 需要屏蔽算法规则。
+> 3. 针对同一类型问题有多种处理方式，每一种处理方式都能独立解决问题。
 
-##### 促销优惠业务场景
+#### 通用写法
+
+> 主要包含了3种角色
+>
+> 1. 上下文（Content）：操作策略的上下文环境，屏蔽高层模块（客户端）对策略/算法的直接访问
+>
+> 2. 抽象策略（Strategy）：规定策略/算法和行为
+>
+> 3. 具体策略角色（ConcreteStrategy）：具体的策略/算法实现
+>
+>    ![image-20201017230112510](designpattern_notes.assets/image-20201017230112510-策略模式UML.png)
+
+```java
+
+public interface IStrategy {
+    void algorithm();
+}
+
+public class ConcreteStrategyA implements IStrategy {
+    @Override
+    public void algorithm() {
+        System.out.println("Strategy A");
+    }
+}
+
+public class ConcreteStrategyB implements IStrategy {
+    @Override
+    public void algorithm() {
+        System.out.println("Strategy B");
+    }
+}
+
+public class Context {
+    private IStrategy mStrategy;
+
+    public Context(IStrategy strategy) {
+        this.mStrategy = strategy;
+    }
+
+    public void algorithm() {
+        this.mStrategy.algorithm();
+    }
+}
+
+public class Test {
+    public static void main(String[] args) {
+        //选择一个具体策略
+        IStrategy strategy = new ConcreteStrategyA();
+        //来一个上下文环境
+        Context context = new Context(strategy);
+        //客户端直接让上下文环境执行算法
+        context.algorithm();
+    }
+}
+```
 
 ##### 选择支付方式的业务场景
 
+> 提供支付宝支付、微信支付两种支付方式，可手动选择支付策略，默认使用支付宝。
+
+```java
+// ========= 返回信息实体 ============
+public class MsgResult {
+    private int code;
+    private Object data;
+    private String msg;
+
+    public MsgResult(int code, String msg, Object data) {
+        this.code = code;
+        this.data = data;
+        this.msg = msg;
+    }
+
+    @Override
+    public String toString() {
+        return "MsgResult{" +
+                "code=" + code +
+                ", data=" + data +
+                ", msg='" + msg + '\'' +
+                '}';
+    }
+}
+
+// ============= 抽象支付方式（抽象策略） =========
+public abstract class Payment {
+    public abstract String getName();
+    
+    //通用逻辑放到抽象类里面实现
+    public MsgResult pay(String uid, double amount){
+        //余额是否足够
+        if(queryBalance(uid) < amount){
+            return new MsgResult(500,"支付失败","余额不足");
+        }
+        return new MsgResult(200,"支付成功","支付金额" + amount);
+    }
+
+    protected abstract double queryBalance(String uid);
+}
+
+// ==================== 具体支付方式（具体策略） ===========
+public class AliPay extends Payment {
+    @Override
+    public String getName() {
+        return "支付宝";
+    }
+    @Override
+    protected double queryBalance(String uid) {
+        return 900;
+    }
+}
+public class WeChatPay extends Payment {
+    @Override
+    public String getName() {
+        return "微信支付";
+    }
+    @Override
+    protected double queryBalance(String uid) {
+        return 300;
+    }
+}
+
+// =============== 支付策略选择（上下文） ==============
+public class PayStrategy {
+    public static  final String ALI_PAY = "AliPay";
+    public static  final String WECHAT_PAY = "WechatPay";
+    public static  final String DEFAULT_PAY = ALI_PAY;
+
+    private static Map<String,Payment> strategy = new HashMap<String,Payment>();
+
+    static {
+        strategy.put(ALI_PAY,new AliPay());
+        strategy.put(WECHAT_PAY,new WeChatPay());
+    }
+
+    public static Payment get(String payKey){
+        if(!strategy.containsKey(payKey)){
+            return strategy.get(DEFAULT_PAY);
+        }
+        return strategy.get(payKey);
+    }
+}
+
+
+// ============ 支付订单实体 ==============
+public class Order {
+    private String uid;
+    private String orderId;
+    private double amount;
+
+    public Order(String uid, String orderId, double amount) {
+        this.uid = uid;
+        this.orderId = orderId;
+        this.amount = amount;
+    }
+
+    public MsgResult pay(){
+        return pay(PayStrategy.DEFAULT_PAY);
+    }
+
+    public MsgResult pay(String payKey){
+        Payment payment = PayStrategy.get(payKey);
+        System.out.println("欢迎使用" + payment.getName());
+        System.out.println("本次交易金额为" + amount + "，开始扣款");
+        return payment.pay(uid,amount);
+    }
+}
+
+// =========== test ================
+public class Test {
+    public static void main(String[] args) {
+        Order order = new Order("1","2020031401000323",824.5);
+        System.out.println(order.pay(PayStrategy.ALI_PAY));
+        System.out.println(order.pay(PayStrategy.WECHAT_PAY));
+    }
+}
+```
+
+
+
 #### 策略模式和委派模式结合使用
+
+> 在SpringMVC中DispathcherServlet中做分发时，在doDispatch()中根据url做出选择，决定将此请求分发给谁处理，它从handlerMapping中找到url对应的处理方法，此时可以认为**handlerMapping是保存策略常量的地方，不同的处理方法就是不同的策略**。当找到对应的处理策略后就通过反射调用对应的方法。
 
 #### 框架源码中的体现
 
-> Comparator#compare()中的比较器针对不同的数据类型有不同的策略
+> - Comparator#compare()中的比较器针对不同的数据类型有不同的策略
+> - Spring初始化时，不同类型的类采用不同的初始化策略，InstantiationStrategy接口作为顶层的策略抽象，下面有SimpleInstantiationStrategy和CglibSubclassInstantiationStrategy
 
 #### 优缺点
 
@@ -2695,6 +3209,8 @@ public class Test {
 ### 责任链模式
 
 > 将链中每个节点看作是一个对象，每个节点处理的请求均不同，且内部自动维护着下一个节点对象，当一个请求从链式首段发出时会沿着链的路径依次传递给每个节点对象，直至有对象处理这个请求为止。行为模式
+>
+> 责任链的独到之处是将节点处理者组成了链式结构，并允许节点自身决定是否进行请求转发或处理，相当于让请求流动了起来。解耦了请求与处理，让请求在处理链中能进行传递与被处理。
 
 #### 应用场景
 
@@ -2702,13 +3218,201 @@ public class Test {
 > 2. 在不明确指定接收者的情况下，向多个对象中的一个提交请求
 > 3. 动态指定一组对象处理请求
 
+#### 通用写法
+
+> 主要包含2种角色
+>
+> 1. 抽象处理者（Handler）：定义请求处理的方法，并维护一个下一个处理节点Handler对象的引用
+> 2. 具体处理者（ConcreteHandler）：对请求进行处理，若不感兴趣则进行转发
+
+```java
+// =========== 抽象处理者 =========
+public abstract class Handler {
+
+    protected Handler nextHandler;
+    public void setNextHanlder(Handler successor) {
+        this.nextHandler = successor;
+    }
+
+    public abstract void handleRequest(String request);
+
+}
+
+// =========== 具体处理者 =========
+public class ConcreteHandlerA extends Handler {
+
+    @Override
+    public void handleRequest(String request) {
+        if ("requestA".equals(request)) {
+            System.out.println(this.getClass().getSimpleName() + "deal with request: " + request);
+            return;
+        }
+        if (this.nextHandler != null) {
+            this.nextHandler.handleRequest(request);
+        }
+    }
+}
+
+public class ConcreteHandlerB extends Handler {
+
+    @Override
+    public void handleRequest(String request) {
+        if ("requestB".equals(request)) {
+            System.out.println(this.getClass().getSimpleName() + "deal with request: " + request);
+            return;
+        }
+        if (this.nextHandler != null) {
+            this.nextHandler.handleRequest(request);
+        }
+    }
+}
+
+// =========== Test =========
+public class Test {
+    public static void main(String[] args) {
+        Handler handlerA = new ConcreteHandlerA();
+        Handler handlerB = new ConcreteHandlerB();
+        handlerA.setNextHanlder(handlerB);
+        handlerA.handleRequest("requestB");
+    }
+}
+```
+
+
+
 ##### 利用责任链模式进行数据校验拦截
 
+> 将参数校验、用户校验、权限校验等各个维度的处理操作解耦之后再串联起来，各自只处理各自相关的职责。
+
+```java
+public class Member {
+    private String loginName;
+    private String loginPass;
+    private String roleName;
+}
+
+public abstract class Handler {
+    protected Handler next;
+    public void next(Handler next){ this.next = next;}
+
+    public abstract void doHandler(Member member);
+}
+
+// ============ 参数校验 ===================
+public class ValidateHandler extends Handler {
+    public void doHandler(Member member) {
+        if(StringUtils.isEmpty(member.getLoginName()) ||
+                StringUtils.isEmpty(member.getLoginPass())){
+            System.out.println("用户名和密码为空");
+            return;
+        }
+        System.out.println("用户名和密码不为空，可以往下执行");
+        next.doHandler(member);
+    }
+}
+
+// ============ 用户校验 ===================
+public class LoginHandler extends Handler {
+    public void doHandler(Member member) {
+        System.out.println("登录成功！");
+        member.setRoleName("管理员");
+        next.doHandler(member);
+    }
+}
+
+// ============= 权限校验 ==========
+public class AuthHandler extends Handler {
+    public void doHandler(Member member) {
+        if(!"管理员".equals(member.getRoleName())){
+            System.out.println("您不是管理员，没有操作权限");
+            return;
+        }
+        System.out.println("允许操作");
+    }
+}
+
+// ============ 串成链 ============
+public class MemberService {
+    public void login(String loginName,String loginPass){
+        Handler validateHandler = new ValidateHandler();
+        Handler loginHandler = new LoginHandler();
+        Handler authHandler = new AuthHandler();
+
+        validateHandler.next(loginHandler);
+        loginHandler.next(authHandler);
+
+        validateHandler.doHandler(new Member(loginName,loginPass));
+    }
+}
+
+// ============== test===========
+public class Test {
+    public static void main(String[] args) {
+        MemberService memberService = new MemberService();
+        memberService.login("whz","666");
+    }
+}
+```
+
+
+
 ####  责任链模式和建造者模式结合使用
+
+> 责任链具备链式结构，而负责组装链式结构的时MerberService，当链式结构较长时组装链式结构将变得非常恼火，于是结合建造者模式用链式编程思想对指定处理的节点自动进行链式组装。
+
+**改造Handler和MerberService**
+
+```java
+public abstract class Handler<T> {
+    protected Handler next;
+    private void next(Handler next){ this.next = next;}
+
+    public abstract void doHandler(Member member);
+
+    public static class Builder<T>{
+        private Handler<T> head;
+        private Handler<T> tail;
+
+        public Builder<T> addHandler(Handler handler){
+//            do {
+                if (this.head == null) {
+                    this.head = this.tail = handler;
+                    return this;
+                }
+                this.tail.next(handler);
+                this.tail = handler;
+//            }while (false);//真正框架中，如果是双向链表，会判断是否已经到了尾部
+            return this;
+        }
+
+        public Handler<T> build(){
+            return this.head;
+        }
+    }
+}
+
+public class MemberService {
+
+    public void login(String loginName,String loginPass){
+        Handler.Builder builder = new Handler.Builder();
+
+        builder.addHandler(new ValidateHandler());
+               .addHandler(new LoginHandler())
+               .addHandler(new AuthHandler());
+
+        builder.build().doHandler(new Member(loginName,loginPass));
+    }
+}
+```
+
+> 因为建造者模式要构建的是节点处理者，因此把Builder作为Handler的静态内部类，并且因为客户端无需进行链式组装，我们还可以把链式组装方法next()设置成private，让Handler更加高内聚。
 
 #### 源码中的体现
 
 > 权限安全校验框架（Spring Security、Shiro）中大量使用，还有流程引擎
+>
+> - JDK的J2EE标准中Filter类，Filter类相当于责任链模型的Handler抽象角色，看到doFilter()中最后一个参数是FilterChain，而FilterChain中也只定义了个doFilter()，实际上J2EE只是定义了个规范，具体的处理逻辑是由使用者自己实现的。比如Spring中MockFilterChain类，它把所有Filter放在List中，然后调用doFilter()循环迭代List，即让List中的Filter按照顺序执行。
+> - Netty中串行化处理PipeLine，底层采用双向链表数据结构将各个处理器串联起来。客户端来请求时，Netty认为Pileline中所有的处理器都有机会处理它。因此，对于入栈的请求全部从头节点开始往后传播，一直传播到尾节点才将消息释放掉。
 
 #### 优缺点
 
