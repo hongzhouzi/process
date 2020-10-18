@@ -3432,7 +3432,7 @@ public class MemberService {
 
 ### 迭代器模式
 
-> 又称为游标模式，它提供一种顺序访问集合/容器对象元素的方法，而无需暴露集合内部表示。
+> 又称为游标模式，它提供一种顺序访问集合/容器对象元素的方法，而无需暴露集合内部表示。为不同容器提供一致的遍历行为，而不用关系容器内容元素的组成结构。
 >
 > 本质：抽离集合对象迭代行为到迭代器中，提供一致访问接口。行为型
 
@@ -3441,21 +3441,118 @@ public class MemberService {
 > 1. 访问一个集合对象的内容而无需暴露它的内部表示
 > 2. 给遍历不同的集合结构提供一个统一的访问接口
 
-#### 手写自定义迭代器
+#### 通用写法
+
+> 主要包含4种角色
+>
+> 1. 抽象迭代器（Iterator）：定义访问和遍历元素的接口
+> 2. 具体迭代器（ConcreteIterator）：提供具体的元素遍历行为
+> 3. 抽象容器（Aggregate）：提供具体迭代器的接口
+> 4. 具体容器（ConcreteAggregate）：创建具体迭代器
+>
+> <img src="designpattern_notes.assets/image-20201018092444721-迭代器UML.png" alt="image-20201018092444721" style="zoom:80%;" />
+
+``` java
+// ========== 抽象迭代器 ==========
+public interface Iterator<E> {
+    E next();
+    boolean hasNext();
+}
+
+// ========== 具体迭代器 ==========
+public class ConcreteIterator<E> implements Iterator<E> {
+    private List<E> list;
+    private int cursor = 0;
+
+    public ConcreteIterator(List<E> list) {
+        this.list = list;
+    }
+
+    @Override
+    public E next() {
+        return this.list.get(this.cursor ++);
+    }
+
+    @Override
+    public boolean hasNext() {
+        return this.cursor < this.list.size();
+    }
+}
+
+// ========== 抽象容器 ==========
+public interface IAggregate<E> {
+    boolean add(E element);
+
+    boolean remove(E element);
+
+    Iterator<E> iterator();
+}
+
+// ========== 具体容器 ==========
+public class ConcreteAggregate<E> implements IAggregate<E> {
+    private List<E> list = new ArrayList<E>();
+
+    @Override
+    public boolean add(E element) {
+        return this.list.add(element);
+    }
+    @Override
+    public boolean remove(E element) {
+        return this.list.remove(element);
+    }
+    @Override
+    public Iterator<E> iterator() {
+        return new ConcreteIterator<E>(this.list);
+    }
+}
+
+// =========== test ==================
+public class Test {
+    public static void main(String[] args) {
+        //来一个容器对象
+        IAggregate<String> aggregate = new ConcreteAggregate<>();
+        //添加元素
+        aggregate.add("one");
+        aggregate.add("two");
+        aggregate.add("three");
+        //获取容器对象迭代器
+        Iterator<String> iterator = aggregate.iterator();
+        //遍历
+        while (iterator.hasNext()) {
+            String element = iterator.next();
+            System.out.println(element);
+        }
+    }
+}
+```
+
+
 
 #### 源码中的体现
+
+> - JDK中的迭代器： Iterator 即抽象迭代器，Collection 即抽象容器，ArrayList等即具体容器，在具体容器中有个内部类Itr实现了Iterator作为具体迭代器，另外还有几个迭代器对Itr进行了扩展等。
+> - Mybatis中的Cursor，DefaultCursor。
 
 #### 优缺点
 
 **优点**
 
 > 1. 多态迭代：为不同的聚合结构提供一致的遍历接口，即一个迭代接口可以访问不同的聚集对象
-> 2. 简化集合对象接口：将集合对象的迭代接口统一抽取到了迭代器中，使得在迭代集合对象时无需关心具体的迭代行为。
-> 3. 解耦迭代与集合
+> 2. 简化集合对象接口：将集合对象的迭代接口统一抽取到了迭代器中，使得在迭代集合对象时无需关心具体的迭代行为
+> 3. 元素迭代功能多样化：每个集合对象都可以提供一个或多个不同迭代器，使得同种元素可以有不同迭代行为
+> 4. 解耦迭代与集合：封装了具体的迭代算法，迭代算法的变化不会影响到集合对象的架构
+
+**缺点**
+
+> 1. 对于比较简单的遍历，使用迭代器比较繁琐
+>
+>    日常开发中一般不会用到迭代器模式，除非自己实现了一种特殊数据结构，对该数据结构的遍历需要定制迭代器。
 
 ### 命令模式
 
 > 命名模式是对命令的封装，解耦了命令请求和处理，请求方只需请求命令，不用关心命令是如何被接收和执行。行为模式
+>
+> 主要作用：将请求封装成一个对象，从而可以将不同请求参数化，于是可以对请求排队、记录请求日志等，还能提供命令撤销和恢复功能。
 
 #### 应用场景
 
@@ -3466,11 +3563,71 @@ public class MemberService {
 > 3. 需要抽象出等待执行的行为，如撤销(undo)恢复(redo)操作
 > 4. 支持命令宏（命令组合）
 
-#### 业务场景中的应用
+#### 通用写法
+
+> 主要包含4种角色：
+>
+> 1. 接收者（Receiver）：根据命令实施或执行的具体操作
+> 2. 命令（Command）：定义需要执行的所有命令行为
+> 3. 具体命令（ConcreteCommand）：与Receiver建立关系，在excute()时调用Receiver的相关方法
+> 4. 请求者（Invoker）：接收命令并执行命令
+>
+> ![image-20201018103513170](designpattern_notes.assets/image-20201018103513170-命令模式UML.png)
+
+```java
+// =============== 接受者 =============
+public class Receiver {
+    public void action() {
+        System.out.println("根据某命令执行的具体操作");
+    }
+}
+
+// =============== 抽象命令 =============
+public interface ICommand {
+    void execute();
+}
+
+// =============== 具体命令 =============
+public class ConcreteCommand implements ICommand {
+    // 直接创建接收者，不暴露给客户端
+    private Receiver mReceiver = new Receiver();
+
+    @Override
+    public void execute() {
+        this.mReceiver.action();
+    }
+}
+
+// =============== 请求者 =============
+public class Invoker {
+    private ICommand mCmd;
+
+    public Invoker(ICommand cmd) {
+        this.mCmd = cmd;
+    }
+
+    public void action() {
+        this.mCmd.execute();
+    }
+}
+
+// =============== test ============
+public class Test {
+    public static void main(String[] args) {
+        // 创建命令
+        ICommand cmd = new ConcreteCommand();
+        // 将命令交给请求者执行
+        Invoker invoker = new Invoker(cmd);
+        invoker.action();
+    }
+}
+```
+
+
 
 #### 源码中的体现
 
-> Runnable对于Thread来说就是命令，通过Runnable定义线程执行的内容但它直接不能执行，要交给Thread处理执行。
+> - JDK中Runnable就相当于命令的抽象，里面定义了线程执行的内容但它不能直接执行。用Thread启动线程后就有资格去抢占CPU的资源，但这儿不需要我们去编写获得CPU资源的逻辑。这样就将用户请求和CPU执行进行了解耦。
 
 #### 优缺点
 
@@ -3494,7 +3651,7 @@ public class MemberService {
 
 > 允许对象在内部状态发生改变时改变它的行为，对象看起来好像修改了它的类。行为型
 >
-> 将状态与行为进行绑定
+> 将状态与行为进行绑定，不同的状态下有不同的行为，当对象在其内部改变的时候行为也要随之改变。
 
 #### 应用场景
 
@@ -3502,23 +3659,31 @@ public class MemberService {
 >
 > 1. **行为随状态改变而改变**
 > 2. 一个操作中有大量**取决于对象状态的分支结构**
-> 3. 
 
-##### 业务场景中的应用
+#### 通用写法
 
-##### 利用状态机实现订单状态流转控制
-
-#### 源码中的体现
+> 主要包含3种角色
+>
+> 1. 环境类（Context）：定义客户端需要的接口，内部维护当前状态实例，并负责具体状态的切换
+> 2. 抽象状态（State）：定义该状态下的行为，可以有一个或多个行为
+> 3. 具体状态（ConcreteState）：实现该状态对应的行为，并在需要的情况下进行状态切换
+>
+> <img src="designpattern_notes.assets/image-20201018120634602-状态模式UML.png" alt="image-20201018120634602" style="zoom:80%;" />
 
 #### 相关的设计模式
 
+> **状态模式与策略模式：**
+>
+> 它们UML图几乎完全一样，它们主要区别在于应用场景不同。策略模式多种算法策略相互独立，任意选择一种就能满足，用户可自行更换策略算法。状态模式各个状态间存在关系，彼此在一定条件下存在自动切换状态的效果，且用户无法指定状态，只能设置初始状态。
+>
+> **状态模式与责任链模式：**
+>
+> 状态模式中进行状态转移时就像责任链那样，这儿的状态可以理解成责任。但是状态模式强调的是内在状态的改变，而责任链模式强调的外部节点对象间的改变。从代码上看：状态模式知道自己下个要进入的状态对象，而责任链并不知道下个节点处理对象，因为链式组装由客户端负责。
+
 #### 优缺点
 
-
-
-
-
-
+> 用得非常少，不分析了
+>
 
 ### 备忘录模式
 
@@ -3539,9 +3704,7 @@ public class MemberService {
 
 #### 优缺点
 
-
-
-
+> 用得非常少，不分析了
 
 ### 中介者模式
 
@@ -3559,11 +3722,173 @@ public class MemberService {
 
 #### 应用场景
 
+> 系统中对象之间存在复杂的引用关系，产生的相互依赖关系结构混乱且难以理解
+
+#### 通用写法
+
+> 包含4种角色
+>
+> 1. 抽象中介者（Mediator）：定义统一接口，用于各同事角色间的通信
+> 2. 具体中介者（ConcreteMediator）：从具体的同事对象接收消息，向具体同事对象发出命令，协调各同事间的协作
+> 3. 抽象同事类（Colleague）：每个同事对象均需要依赖中介者角色，与其他同事间通信时交由中介者进行转发协作
+> 4. 具体同事类（ConcreteColleague）：负责实现自发行为（Self-Method），转发依赖方法（Dep-Method）交由中介者进行协调
+>
+> ![image-20201019001841682](designpattern_notes.assets/image-20201019001841682-中介者模式UML.png)
+
+```java
+// ============= 抽象同事类 ===========
+public abstract class Colleague {
+    protected Mediator mediator;
+
+    public Colleague(Mediator mediator) {
+        this.mediator = mediator;
+    }
+}
+
+// ============== 具体同事类 ================
+public class ConcreteColleagueA extends Colleague {
+    public ConcreteColleagueA(Mediator mediator) {
+        super(mediator);
+        this.mediator.setColleageA(this);
+    }
+    // 自有方法：self-Method
+    public void selfMethodA() {
+        // 处理自己的逻辑
+        System.out.println(String.format("%s:self-Method", this.getClass().getSimpleName()));
+    }
+    // 依赖方法：dep-Method
+    public void depMethodA() {
+        // 处理自己的逻辑
+        System.out.println(String.format("%s:depMethod: delegate to Mediator", this.getClass().getSimpleName()));
+        // 无法处理的业务逻辑委托给中介者处理
+        this.mediator.transferA();
+    }
+}
+public class ConcreteColleagueB extends Colleague {
+    public ConcreteColleagueB(Mediator mediator) {
+        super(mediator);
+        this.mediator.setColleageB(this);
+    }
+    // 自有方法：self-Method
+    public void selfMethodB() {
+        // 处理自己的逻辑
+        System.out.println(String.format("%s:self-Method", this.getClass().getSimpleName()));
+    }
+    // 依赖方法：dep-Method
+    public void depMethodB() {
+        // 处理自己的逻辑
+        System.out.println(String.format("%s:depMethod: delegate to Mediator", this.getClass().getSimpleName()));
+        // 无法处理的业务逻辑委托给中介者处理
+        this.mediator.transferA();
+    }
+}
+
+// =============== 抽象中介者 ===============
+public abstract class Mediator {
+    protected ConcreteColleagueA colleagueA;
+    protected ConcreteColleagueB colleagueB;
+
+    public void setColleageA(ConcreteColleagueA colleague) {
+        this.colleagueA = colleague;
+    }
+
+    public void setColleageB(ConcreteColleagueB colleague) {
+        this.colleagueB = colleague;
+    }
+    // 中介者业务逻辑
+    public abstract void transferA();
+    public abstract void transferB();
+}
+
+// ================== 具体中介者 ================
+public class ConcreteMediator extends Mediator {
+    @Override
+    public void transferA() {
+        // 协调行为:A 转发到 B
+        this.colleagueB.selfMethodB();
+    }
+
+    @Override
+    public void transferB() {
+        // 协调行为:B 转发到 A
+        this.colleagueA.selfMethodA();
+    }
+}
+
+// ========== test ===================
+public class Test {
+    public static void main(String[] args) {
+        Mediator mediator = new ConcreteMediator();
+        ConcreteColleagueA colleagueA = new ConcreteColleagueA(mediator);
+        ConcreteColleagueB colleagueB = new ConcreteColleagueB(mediator);
+        colleagueA.depMethodA();
+        System.out.println("-------------------------");
+        colleagueB.depMethodB();
+    }
+}
+```
+
+> 重要的是思想，中介者模式实现时不一定得按照上面的模型来。
+
 ##### 使用中介者模式设计群聊场景
+
+> 用户将信息发送给服务器，服务器作为中介者，将消息发给聊天室进行展示。
+
+```java
+// ========== 聊天室 ===========
+public class ChatRoom {
+    public void showMsg(User user,String msg){
+        System.out.println("[" + user.getName() + "] : " + msg);
+    }
+}
+
+// ========= 用户 ==========
+public class User {
+    private String name;
+    private ChatRoom chatRoom;
+
+    public User(String name, ChatRoom chatRoom) {
+        this.name = name;
+        this.chatRoom = chatRoom;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void sendMessage(String msg){
+        this.chatRoom.showMsg(this,msg);
+    }
+}
+
+// ===============
+public class Test {
+    public static void main(String[] args) {
+        ChatRoom chatRoom = new ChatRoom();
+
+        User tom = new User("Tom",chatRoom);
+        User jerry = new User("Jerry",chatRoom);
+
+        tom.sendMessage("Hi! I am Tom.");
+        jerry.sendMessage("Hello! My name is Jerry.");
+    }
+}
+
+```
 
 #### 源码中的体现
 
+> JDK中的Timer类中有很多的schedule()重载方法，其中任意一个方法最终都是调用了私有的sched()，在sched()中可以发现，不管什么样的任务都被加到一个队列中顺序执行。这个队列中的所有对象称之为“同事”，同事之间都是通过Timer来协调完成的，Timer就承担了中介者角色。
+
 #### 优缺点
+
+优点：
+
+> 1. 减少类间依赖，将多对多依赖转换成一对多，降低了类间耦合
+
+缺点：
+
+> 中介者模式将原本多个对象直接的依赖变成了中介者和多个同事类的依赖关系。当同事类越来越多时中介者就会越来越臃肿，变得复杂且难以维护
 
 ### 解释器模式
 
