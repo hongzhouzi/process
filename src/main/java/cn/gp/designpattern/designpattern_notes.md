@@ -3890,21 +3890,32 @@ public class Test {
 
 > 中介者模式将原本多个对象直接的依赖变成了中介者和多个同事类的依赖关系。当同事类越来越多时中介者就会越来越臃肿，变得复杂且难以维护
 
+
+
 ### 解释器模式
 
 > 指给定一门语言，定义它的文法的一种表示，并定义一个解释器，该解释器用来解释语言中的句子，是一种按照规定的语法（文法）进行解析的模式，行为型。
+>
+> 核心思想：识别文法，构建解释。
 >
 > 感觉和适配器有点像，将一种语法的适配成另一方语法
 
 #### 应用场景
 
-##### 使用解释器模式解析数学表达式
+> ##### 使用解释器模式解析数学表达式
+>
+> 1. 一些重复出现的问题可以用一种简单的语言来进行表达
+> 2. 一个简单的语法需要解释的场景
 
 #### 源码中的体现
 
-> 解析正则表达式
+> - JDK中正则表达式Pattern
+>
+> - Spring的ExpressionParse
 
 #### 优缺点
+
+
 
 ### 观察者模式
 
@@ -3912,7 +3923,7 @@ public class Test {
 
 > 观察者模式又叫发布-订阅模式、模型-视图模式、源-监听器模式。定义一种一对多的依赖关系，一个主题对象可以被多个观察者对象同时监听，使得每当主题对象状态变化时所有监听它的对象都会得到通知并自动更新。行为型模式
 >
-> 将观察者和被观察者进行解耦
+> 核心：将观察者和被观察者进行解耦。
 
 #### 应用场景
 
@@ -3920,7 +3931,82 @@ public class Test {
 > 2. 实现类似广播机制
 > 3. 多层级嵌套使用，形成一种链式触发机制，使得事件具备跨域通知
 
+#### 通用写法
+
+> 包含3种角色：
+>
+> 1. 抽象主题（Subject）：被观察的对象（Observable），是一个定义了增加、删除、通知观察者对象方法的接口或抽象类
+> 2. 具体主题（ConcreteSubject）：具体被观察者，当其内部状态发生改变时，会通知已注册的观察者
+> 3. 抽象观察者（Observable）：定义了响应通知的更新方法
+> 4. 具体观察者（ConcreteObservable）：在得到状态更新时，会自动做出响应
+>
+> ![image-20201019204441693](designpattern_notes.assets/image-20201019204441693-观察者模式UML.png)
+
+```java
+// ========= 抽象主题 ===========
+public interface ISubject<E> {
+    boolean attach(IObserver<E> observer);
+
+    boolean detach(IObserver<E> observer);
+
+    void notify(E event);
+}
+
+// ========= 具体主题 ===========
+public class ConcreteSubject<E> implements ISubject<E> {
+    private List<IObserver<E>> observers = new ArrayList<>();
+
+    @Override
+    public boolean attach(IObserver<E> observer) {
+        return !this.observers.contains(observer) && this.observers.add(observer);
+    }
+
+    @Override
+    public boolean detach(IObserver<E> observer) {
+        return this.observers.remove(observer);
+    }
+
+    @Override
+    public void notify(E event) {
+        for (IObserver<E> observer : this.observers) {
+            observer.update(event);
+        }
+    }
+}
+
+// ========= 抽象观察者 ===========
+public interface IObserver<E> {
+    void update(E event);
+}
+
+// ========= 具体观察者 ===========
+public class ConcreteObserver<E> implements IObserver<E> {
+    @Override
+    public void update(E event) {
+        System.out.println("receive event: " + event);
+    }
+}
+
+// ========= Test ===========
+public class Test {
+    public static void main(String[] args) {
+        // 被观察者
+        ISubject<String> observable = new ConcreteSubject<String>();
+        // 观察者
+        IObserver<String> observer = new ConcreteObserver<String>();
+        // 注册
+        observable.attach(observer);
+        // 通知
+        observable.notify("hello");
+    }
+}
+```
+
+
+
 ##### 在业务场景中的应用
+
+> MQ、异步队列等
 
 ##### 设计鼠标事件响应API
 
@@ -3928,9 +4014,43 @@ public class Test {
 
 ##### 基于Guava API轻松落地观察者模式
 
+> ```xml
+> <dependency>
+>     <groupId>com.google.guava</groupId>
+>     <artifactId>guava</artifactId>
+>     <version>23.0</version>
+> </dependency>
+> ```
+>
+> 创建侦听事件
+>
+> ```java
+> public class GuavaEvent {
+>     @Subscribe
+>     public void subscribe(String str) {
+>         System.out.println("执行subscribe()，入参是：" + str);
+>     }
+> }
+> ```
+>
+> 测试
+>
+> ```java
+> public class Test {
+>     public static void main(String[] args) {
+>         EventBus eventBus = new EventBus();
+>         eventBus.register(new GuavaEvent());
+>         eventBus.register(new GuavaEvent());
+>         eventBus.register(new GuavaEvent());
+> 
+>         eventBus.post("whz");
+>     }
+> }
+> ```
+
 #### 源码中的体现
 
-> 以Listener结尾的方法一般都用的观察者模式
+> 以Listener结尾的方法一般都用的观察者模式，在JDK里面以及Spring里面等都用得非常多
 
 #### 优缺点
 
@@ -3944,6 +4064,8 @@ public class Test {
 > 1. 若观察者数量过多，则事件通知会耗时较长
 > 2. 事件通知呈线性关系，若其中一个观察者处理事件卡壳则会影响后续观察者接收该事件
 > 3. 若观察者好被观察者存在循环依赖，则可能造成循环调用导致系统崩溃
+
+
 
 ### 访问者模式
 
@@ -3961,7 +4083,7 @@ public class Test {
 > 2. 数据数据结构与数据操作分离的场景
 > 3. 需要对不同数据类型（元素）进行操作，而不使用分支判断具体类型的场景
 
-##### 利用访问者模式实现KPI考核的场景
+
 
 ##### 从静态分派到动态分派
 
@@ -3984,6 +4106,8 @@ public class Test {
 
 #### 源码中的体现
 
+> Spring IOC中BeanDefinitionVisitor的visitBeanDefinition()方法中分别访问了其他数据，比如父类的名字，自己的类名，在IOC容器中的名称等各种信息。
+>
 > 
 
 #### 优缺点
@@ -3992,9 +4116,11 @@ public class Test {
 
 
 
-### 总结回顾
+## 总结回顾
 
 > 掌握设计模式的“道”而不是“术”，重思想，而不是生搬硬套。
+
+#### 七大软件设计原则
 
 | 设计原则   | 归纳                        | 目的                   |
 | ------ | ------------------------- | -------------------- |
@@ -4005,6 +4131,10 @@ public class Test {
 | 迪米特法则  | 不改知道的不要知道                 | 只和朋友交流不和陌生人说话，减少代码臃肿 |
 | 里氏替换原则 | 子类重写方法功能发生改变，不应该影响父类方法的含义 | 防止继承泛滥               |
 | 合成复用原则 | 尽量使用组合实现代码复用而不是继承         | 降低耦合                 |
+
+
+
+#### 设计模式
 
 了解GOF由来
 
@@ -4028,9 +4158,47 @@ public class Test {
 
 行为型使用频率
 
-> 
+> 观察者模式 > 模板方法模式 > 策略模式 > 责任链模式 > …… 
+
+#### 一句话概括
+
+| 设计模式                | 目的                                   | 生活案例     | 归纳                         | 框架源码应用举例                                    |
+| ----------------------- | -------------------------------------- | ------------ | ---------------------------- | --------------------------------------------------- |
+| 工厂模式（Factory）     | 封装创建细节                           | 实体工厂     | 产品标准化，生产更高效       | LoggerFactory、Calender                             |
+| 单例模式（Singleton）   | 保证独一无二                           | CEO          | 世界上只有一个我             | BeanFactory、Runtime                                |
+| 原型模式（Prototype）   | 高效创建对象                           | 克隆         | 拔一根猴毛，吹出千万个       | ArrayList、PrototypeBean                            |
+| 建造者模式（Builder）   | 开发个性配置步骤（先配置，后集中处理） | 选配         | 高中低配，想怎么配就怎么配   | StringBuilder、BeanDefinitionBuilder                |
+| 代理模式（Proxy）       | 增强职责                               | 房产中介     | 没资源没时间，得着中介来帮忙 | ProxyFactoryBean、JDKDynamicAOPProxy、CglibAOPProxy |
+| 门面模式（Facade）      | 统一访问入口                           | 前台         | 打开一扇门，走向全世界       | JdbcUtils、RequestFacade                            |
+| 装饰器模式（Decorator） | 灵活扩展，同宗同源                     | 煎饼         | 他大舅他二舅，都是他舅       | BufferedReader、InputStream                         |
+| 享元模式（Flyweight）   | 共享资源池                             | 全国联网社保 | 优化配置资源，减少重复浪费   | String、Integer、ObjectPool                         |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
+|                         |                                        |              |                              |                                                     |
 
 
+
+#### 设计模式混用
+
+![image-20201019222419554](designpattern_notes.assets/image-20201019222419554-设计模式混用.png)
 
 > 装饰器模式，不管怎么扩展，它都是同一个继承体系，扩展的内容都是同一个源头
 
