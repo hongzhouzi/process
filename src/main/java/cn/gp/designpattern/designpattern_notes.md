@@ -4162,37 +4162,37 @@ public class Test {
 
 #### 一句话概括
 
-| 设计模式                | 目的                                   | 生活案例     | 归纳                         | 框架源码应用举例                                    |
-| ----------------------- | -------------------------------------- | ------------ | ---------------------------- | --------------------------------------------------- |
-| 工厂模式（Factory）     | 封装创建细节                           | 实体工厂     | 产品标准化，生产更高效       | LoggerFactory、Calender                             |
-| 单例模式（Singleton）   | 保证独一无二                           | CEO          | 世界上只有一个我             | BeanFactory、Runtime                                |
-| 原型模式（Prototype）   | 高效创建对象                           | 克隆         | 拔一根猴毛，吹出千万个       | ArrayList、PrototypeBean                            |
-| 建造者模式（Builder）   | 开发个性配置步骤（先配置，后集中处理） | 选配         | 高中低配，想怎么配就怎么配   | StringBuilder、BeanDefinitionBuilder                |
-| 代理模式（Proxy）       | 增强职责                               | 房产中介     | 没资源没时间，得着中介来帮忙 | ProxyFactoryBean、JDKDynamicAOPProxy、CglibAOPProxy |
-| 门面模式（Facade）      | 统一访问入口                           | 前台         | 打开一扇门，走向全世界       | JdbcUtils、RequestFacade                            |
-| 装饰器模式（Decorator） | 灵活扩展，同宗同源                     | 煎饼         | 他大舅他二舅，都是他舅       | BufferedReader、InputStream                         |
-| 享元模式（Flyweight）   | 共享资源池                             | 全国联网社保 | 优化配置资源，减少重复浪费   | String、Integer、ObjectPool                         |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
-|                         |                                        |              |                              |                                                     |
+| 设计模式                              | 目的                                     | 生活案例       | 归纳                           | 框架源码应用举例                                    |
+| ------------------------------------- | ---------------------------------------- | -------------- | ------------------------------ | --------------------------------------------------- |
+| 工厂模式（Factory）                   | 封装创建细节                             | 实体工厂       | 产品标准化，生产更高效         | LoggerFactory、Calender                             |
+| 单例模式（Singleton）                 | 保证独一无二                             | CEO            | 世界上只有一个我               | BeanFactory、Runtime                                |
+| 原型模式（Prototype）                 | 高效创建对象                             | 克隆           | 拔一根猴毛，吹出千万个         | ArrayList、PrototypeBean                            |
+| 建造者模式（Builder）                 | 开发个性配置步骤（先配置，后集中处理）== | 选配           | 高中低配，想怎么配就怎么配     | StringBuilder、BeanDefinitionBuilder                |
+| 代理模式（Proxy）                     | 增强职责                                 | 房产中介       | 没资源没时间，得着中介来帮忙   | ProxyFactoryBean、JDKDynamicAOPProxy、CglibAOPProxy |
+| 门面模式（Facade）                    | 统一访问入口                             | 前台           | 打开一扇门，走向全世界         | JdbcUtils、RequestFacade                            |
+| 装饰器模式（Decorator）               | 灵活扩展，同宗同源                       | 煎饼           | 他大舅他二舅，都是他舅         | BufferedReader、InputStream                         |
+| 享元模式（Flyweight）                 | 共享资源池                               | 全国联网社保   | 优化配置资源，减少重复浪费     | String、Integer、ObjectPool                         |
+| 组合模式（Composite）                 | 统一整体和个体                           | 文件和目录树   | 人在一起叫团伙，心在一起叫团队 | HashMap、SqlNode                                    |
+| 适配器模式（Adapter）                 | 兼容转换                                 | 电源适配       | 适合自己的才是最好的           | AdviserAdapter、HandlerAdapter                      |
+| 桥接模式（Bridge）                    | 不用继承建立联系                         | 桥             | 约定优于配置                   | DriverMananger                                      |
+| 委派模式（Delegate）                  | 只对结果负责==                           | 授权委托书     | 这个需求很简单，怎么实现我不管 | ClassLoader、BeanDefinitionParserDelegate           |
+| 模板模式（Template）                  | 逻辑复用                                 | 把大象装进冰箱 | 流程全部标准化，需要微调请覆盖 | JdbcTemplate、HTTPServlet                           |
+| 策略模式（Strategy）                  | 把选择权交给用户                         | 选择支付方式   | 条条大路通北京，具体那条你来定 | Comparator、InstantiationStrategy                   |
+| 责任链模式（Chain of Responsibility） | 解耦逻辑处理                             | 踢皮球         | 各人自扫门前雪莫管他家瓦上霜   | FilterChain、Pipeline                               |
+| 迭代模式（Iterator）                  | 统一对集合的访问                         | 逐个检票进站   | 流水线上做一天，每个包裹扫一遍 | Iterator                                            |
+| 命令模式（Command）                   | 解耦请求和处理                           | 遥控器         | 运筹帷幄之中，掌握千里之外     | Runnable、TestCase                                  |
+| 状态模式（State）                     | 绑定状态和行为                           | 订单状态跟踪   | 状态驱动行为，行为决定状态     | LifeCycle                                           |
+| 备忘录模式（Memento）                 | 备份4                                    | 草稿           | 给我一剂“后悔药”               | StateManageMessageContent                           |
+| 中介者模式（Mediator）                | 统一管理网状资源                         | 朋友圈         | 联系方式我给你，怎么搞定我不管 | Timer                                               |
+| 解释器模式（Interpreter）             | 实现特定语法解析                         | 摩斯密码       | 我想说“方言”，一起解释器归我管 | Pattern、ExpressionParse                            |
+| 观察者模式（Observer）                | 解耦观察者与被观察者                     | 闹钟、MQ       | 到点（有消息）就通知我         | ContextLoaderListener，XXListener                   |
+| 访问者模式（Visitor）                 | 解耦数据结构和数据操作                   | KPI考核        | 横看成岭侧成峰，远近高低各不同 | FileVisitor、BeanDefinitionVisitor                  |
+|                                       |                                          |                |                                |                                                     |
+|                                       |                                          |                |                                |                                                     |
+|                                       |                                          |                |                                |                                                     |
+|                                       |                                          |                |                                |                                                     |
+|                                       |                                          |                |                                |                                                     |
+|                                       |                                          |                |                                |                                                     |
 
 
 
