@@ -2607,11 +2607,280 @@ public class Test {
 >
 > 适配器有3种形式：类适配器、对象适配器、接口适配器
 
+##### 类适配器
+
+![image-20201020130518960](designpattern_notes.assets/image-20201020130518960.png)
+
+```java
+// ========== 源角色 ==========
+public class Adaptee {
+    public int specificRequest() {
+        return 220;
+    }
+}
+
+// ========== 目标角色 ==========
+public interface Target {
+    int request();
+}
+
+// ========== 适配器 ==========
+public class Adapter extends Adaptee implements Target {
+    /**
+     * 实现目标角色的接口，在里面调用源角色中的方法获取源数据，
+     * 并将源数据处理成目标角色需要的数据
+     */
+    @Override
+    public int request() {
+        return super.specificRequest()/10;
+    }
+}
+
+// ========== Test ==========
+public class Test {
+    public static void main(String[] args) {
+
+        Target adapter = new Adapter();
+        System.out.println(adapter.request());
+    }
+}
+```
+
+##### 对象适配器
+
+```java
+// ========== 适配器 ==========
+public class Adapter implements Target {
+    private Adaptee adaptee;
+    public Adapter(Adaptee adaptee){
+        this.adaptee = adaptee;
+    }
+    @Override
+    public int request() {
+        return adaptee.specificRequest() / 10;
+    }
+}
+
+// ========== Test ==========
+public class Test {
+    public static void main(String[] args) {
+        Adaptee adaptee = new Adaptee();
+        Target adapter = new Adapter(adaptee);
+        System.out.println("源："+adaptee.specificRequest()+"目标："+adapter.request());
+    }
+}
+```
+
+
+
+##### 接口适配器
+
+![image-20201020130432946](designpattern_notes.assets/image-20201020130432946.png)
+
+```java
+// ========== 适配器 ==========
+public abstract class Adapter implements Target {
+    protected Adaptee adaptee;
+    public Adapter(Adaptee adaptee){
+        this.adaptee = adaptee;
+    }
+
+    /**
+     * 用来适配更多可能性，在使用时选择性重写这些方法
+     */
+    public int request1() {
+        return 0;
+    }
+
+    public int request2() {
+        return 0;
+    }
+}
+
+// ========== Test ==========
+public class Test {
+    public static void main(String[] args) {
+        Adapter adapter = new Adapter(new Adaptee()) {
+            @Override
+            public int request() {
+                return adaptee.specificRequest() / 10;
+            }
+
+            /*
+            根据需要选择性重写一些方法自由适配
+             */
+            @Override
+            public int request1() {
+                return adaptee.specificRequest() / 5;
+            }
+        };
+        int result = adapter.request();
+        int result1 = adapter.request1();
+        System.out.println(result+"====="+result1);
+    }
+}
+```
+
+
+
+
+
 #### 重构第三方登录自由适配的业务场景
+
+
+
+```java
+public interface ILoginAdapter {
+    /**
+     * 判断是否兼容
+     *
+     * @param object
+     * @return
+     */
+    boolean support(Object object);
+
+    /**
+     * 登录
+     *
+     * @param id
+     * @param adapter 
+     * @return
+     */
+    Object login(String id, Object adapter);
+}
+
+public interface IPassportForThird {
+
+    Object loginForQQ(String openId);
+
+    Object loginForWechat(String openId);
+
+    Object loginForToken(String token);
+}
+
+public class PassportService {
+    /**
+     * 登录的方法
+     * @param username
+     * @param password
+     * @return
+     */
+    public Object login(String username,String password){
+        return null;
+    }
+}
+
+// ========== 抽象适配类 ==========
+public abstract class AbstractAdapter extends PassportService implements ILoginAdapter {
+    protected Object loginForRegist(String username, String password){
+        if(null == password){
+            password = "THIRD_EMPTY";
+        }
+        super.regist(username,password);
+        return super.login(username,password);
+    }
+}
+
+// ========== 具体适配类 ==========
+public class LoginForTokenAdapter extends AbstractAdapter {
+    @Override
+    public boolean support(Object adapter) {
+        return adapter instanceof LoginForTokenAdapter;
+    }
+
+    @Override
+    public Object login(String id, Object adapter) {
+        return super.loginForRegist(id,null);
+    }
+}
+
+public class LoginForWechatAdapter extends AbstractAdapter {
+    @Override
+    public boolean support(Object adapter) {
+        return adapter instanceof LoginForWechatAdapter;
+    }
+    @Override
+    public Object login(String id, Object adapter) {
+        return super.loginForRegist(id,null);
+    }
+}
+
+public class LoginForQQAdapter extends AbstractAdapter {
+    @Override
+    public boolean support(Object adapter) {
+        return adapter instanceof LoginForQQAdapter;
+    }
+
+    @Override
+    public Object login(String id, Object adapter) {
+        if (!support(adapter)) {
+            return null;
+        }
+        //accesseToken
+        //time
+        return super.loginForRegist(id, null);
+    }
+}
+
+
+// ========== 适配器，整合具体适配类 ==========
+public class PassportForThirdAdapter implements IPassportForThird {
+
+    @Override
+    public Object loginForQQ(String openId) {
+        return processLogin(openId, LoginForQQAdapter.class);
+    }
+
+    @Override
+    public Object loginForWechat(String openId) {
+
+        return processLogin(openId, LoginForWechatAdapter.class);
+    }
+
+    @Override
+    public Object loginForToken(String token) {
+
+        return processLogin(token, LoginForTokenAdapter.class);
+    }
+
+    private Object processLogin(String id,Class<? extends ILoginAdapter> clazz){
+        try {
+            ILoginAdapter adapter = clazz.newInstance();
+            if (adapter.support(adapter)){
+                return adapter.login(id,adapter);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+}
+
+```
+
+
+
+
 
 #### 适配器模式在源码中的应用
 
+> - SpringMVC中的HandlerAdapter，DispatcherServlet的doDispatch方法中的getHandlerAdapter()
+> - SpringAOP中AdviserAdapter
+
 #### 适配器模式和装饰器模式对比
+
+> 装饰器模式和适配器模式都是包装模式（Wrapper Pattern），装饰器也是种特殊的代理模式。
+
+|      | 装饰器模式                                                   | 适配器模式                                                   |
+| ---- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| 形式 | 特殊的适配器模式                                             | 没有层级关系，装饰器模式有层级关系                           |
+| 定义 | 装饰器和被装饰器都是实现的同一个接口，主要目的是为了扩展之后依旧保留OOP关系 | 适配器和被适配器没有必然的联系，通常是采用继承或代理形式进行包装 |
+| 关系 | is-a                                                         | has-a                                                        |
+| 功能 | 注重覆盖、扩展                                               | 注重兼容、转换                                               |
+| 设计 | 前置考虑                                                     | 后置考虑                                                     |
+
+
+
 
 #### 适配器模式的优缺点
 
@@ -2625,6 +2894,8 @@ public class Test {
 
 > 1. 适配器编写过程需要全面考虑，会增加系统的复杂性。
 > 2. 增加代码阅读难度，降低代码可读性，过多使用适配器会使系统变得凌乱。
+
+
 
 ### 桥接模式
 
@@ -4187,12 +4458,6 @@ public class Test {
 | 解释器模式（Interpreter）             | 实现特定语法解析                         | 摩斯密码       | 我想说“方言”，一起解释器归我管 | Pattern、ExpressionParse                            |
 | 观察者模式（Observer）                | 解耦观察者与被观察者                     | 闹钟、MQ       | 到点（有消息）就通知我         | ContextLoaderListener，XXListener                   |
 | 访问者模式（Visitor）                 | 解耦数据结构和数据操作                   | KPI考核        | 横看成岭侧成峰，远近高低各不同 | FileVisitor、BeanDefinitionVisitor                  |
-|                                       |                                          |                |                                |                                                     |
-|                                       |                                          |                |                                |                                                     |
-|                                       |                                          |                |                                |                                                     |
-|                                       |                                          |                |                                |                                                     |
-|                                       |                                          |                |                                |                                                     |
-|                                       |                                          |                |                                |                                                     |
 
 
 

@@ -8,7 +8,7 @@ import cn.gp.designpattern.i.adapter.classadpter.Target;
  * @date 2020/10/17
  */
 public class Adapter implements Target {
-    private cn.gp.designpattern.i.adapter.classadpter.Adaptee adaptee;
+    private Adaptee adaptee;
     public Adapter(Adaptee adaptee){
         this.adaptee = adaptee;
     }

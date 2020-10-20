@@ -7,7 +7,7 @@ package cn.gp.designpattern.i.adapter.classadpter;
 public class Test {
     public static void main(String[] args) {
 
-        Target adapter = new cn.gp.designpattern.i.adapter.classadpter.Adapter();
+        Target adapter = new Adapter();
         System.out.println(adapter.request());
     }
 }
