@@ -224,7 +224,12 @@
 
 2.3.2、beans（配置封装）模块
 
+> - BeanDefinition
+> - BeanWrapper
+
 2.3.3、context（IOC容器）模块
+
+> - ApplicationContext
 
 第四章：完成DI依赖注入功能
 
@@ -242,17 +247,29 @@
 >
 > 运行阶段：service()通过HandlerMapping拿到对应HandlerAdapter，再拿到ModeAndView，根据ModeAndView判断返回页面还是数据，若返回页面就启动模板引擎最后生成一个View，若返回数据就用response.getWrite().write()输出数据。View中的render()是渲染页面，读取模板中的文件内容，用正则替换占位符，最后通过response输出到浏览器。
 >
-> 九大组件中部分：
+> 
 >
-> HandlerMapping：根据url找到对应的处理方法’
+> **九大组件中部分：**
 >
-> HandlerAdapter：动态参数适配器
+> - MultpartResolver：多文件上传组件
+> - LocaleResolver：本地语言环境
+> - ThemeResolver：主题模板处理器
+> - HandlerMapping：根据url找到对应的处理方法’
 >
-> ModeAndView：将返回的结果封装成模板视图
+> - HandlerAdapter：动态参数适配器
+> - HandlerExceptionResolver：异常拦截器
+> - RequestToViewNameTranslator：视图提取器，从request获取viewName
 >
-> ViewResolver：视图转换器，模板引擎
->
-> View：转换为视图显示
+> - ViewResolvers：视图转换器，模板引擎
+> - FlashMapManager：参数缓存器
+
+SpringMVC核心组件执行流程
+
+> 1. HandlerMapping
+> 2. HandlerAdapter
+> 3. ModelAndView
+> 4. ViewResolver
+> 5. View：转换为视图显示
 
 
 
