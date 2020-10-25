@@ -3364,7 +3364,6 @@ class Solution {
             return;
         }
         int row = board.length, col = board[0].length;
-        recursion
         for (int i = 0; i < row; i++) {
             for (int j = 0; j < col; j++) {
                 boolean isEdge = i == 0 || j == 0 || i == row - 1 || j == col - 1;
