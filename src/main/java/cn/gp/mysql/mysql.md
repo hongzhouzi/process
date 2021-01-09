@@ -1,12 +1,8 @@
+MySQL 中文文档：https://www.mysqlzh.com/
 
+官方文档：https://dev.mysql.com/doc/refman/5.7/en/sql-statements.html
 
-
-
-
-
-
-
-https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
+SQL函数官方API：https://dev.mysql.com/doc/refman/5.7/en/sql-function-reference.html
 
 # MySQL架构与SQL执行流程
 
@@ -14,18 +10,44 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 
 ![image-20201129124803832](mysql.assets/image-20201129124803832.png)
 
-##### 1.1通信协议
+
+
+##### 1.1连接
 
 > 在开发系统跟三方系统对接时必须清楚的两件事：
 >
 > 1. 通信协议，比如用的HTTP、WebService
 > 2. 消息格式，比如用的xml、json、定长格式（报文头长度多少，包含什么内容，每个字段的详细含义等）
-
-##### 1.1连接
-
-> MySQL服务默认监听3306端口，客户端连接服务端的方式有多种。可以是同步、异步、长连接、短连接、TCP、Unix Socket等，MySQL有专门处理连接的模块，连接的时候还需要验证权限。
 >
-> 客户端每产生一个连接或会话，就会在服务端创建一个线程来处理，所以可以通过查询线程数可知道当前有多少个连接。可以使用 show status 命令查询当前有多少个连接
+> 
+>
+> MySQL服务默认监听3306端口，客户端连接服务端的方式有多种。可以是**同步**、**异步**的**通信类型**；**长连接**（减少创建销毁资源，连接池中会使用长连接）、**短连接**（操作完毕后就close）的**连接方式**；**TCP/IP**、**Unix Socket**的**通信协议**等，MySQL有专门处理连接的模块，连接的时候还需要验证权限。
+>
+> **通信类型**：
+>
+> 同步：它依赖于被调用方，会受限于被调用方的性能，只能做到一对一，很难做到一对多通信。
+>
+> 异步：可以避免阻塞等待，但不能节省SQL执行时间，而且如果异步存在并发会给服务器带来很大压力且可能导致数据混乱。所以一般不用异步方式，要用则需要用连接池管理，排队从连接池中获取而不是创建新的连接。
+>
+> 
+>
+> **通信协议**：
+>
+> 在Linux服务器上，连接时不指定 -h 参数，就会使用socket方式登录，它不用通过网络协议，用到服务器上的一个物理文件（/var/lib/mysql/mysql.sock）。
+>
+> 指定 -h 参数就会使用TCP/IP协议，使用Navicat工具、编程语言连接模块（mysql-connector-java-x.x.xx.jar）都是以TCP/IP协议连接到MySQL服务器的。
+>
+> ```sql
+> mysql -h 192.168.2.10 -uroot -p 123456;
+> ```
+>
+> 
+>
+> MySQL使用自定义的消息格式进行数据传输，可参考 https://www.cnblogs.com/songhaibin/p/13725598.html
+>
+> 
+>
+> **客户端每产生一个连接或会话，就会在服务端创建一个线程来处理**，所以可以通过查询线程数可知道当前有多少个连接。可以使用 show status 命令查询当前有多少个连接
 >
 > ```sql
 > SHOW GLOBAL STATUS LIKE 'Thread%'
@@ -34,7 +56,7 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 > | 字段              | 含义                                 |
 > | ----------------- | ------------------------------------ |
 > | Threads_cached    | 缓存中线程连接数                     |
-> | Threads_connected | 氮气打开的连接数                     |
+> | Threads_connected | 当前打开的连接数                     |
 > | Threads_created   | 为处理连接创建的线程数               |
 > | Threads_running   | 非睡眠状态的连接数，通常值并发连接数 |
 >
@@ -43,7 +65,6 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 > ```sql
 > SHOW GLOBAL VARIABLES LIKE 'wait_timeout'; -- 非交互式超时时间，如jdbc程序。默认28800(s) (8h)
 > SHOW GLOBAL VARIABLES LIKE 'interactive_timeout'; -- 交互式超时时间，如数据库工具。默认28800(s) (8h)
-> 
 > ```
 >
 > 既然连接消耗资源，MySQL服务运行的最大连接数（并发数）默认是151，最大可以设置成100000
@@ -60,9 +81,9 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 
 ##### 1.2查询缓存
 
-> MySQL内部自带了一个缓存模块，但缓存默认关闭（不推荐使用）。不推荐使用主要是因为MySQL自带的缓存应用场景有限，1.要求SQL语句必须一模一样（空格大小写都不会忽略）；2.表汇总任何一条数据发生变化，这张表所有缓存都会失效（不适合有数据更新的）。
+> MySQL内部自带了一个缓存模块，但**缓存默认关闭**（不推荐使用）。不推荐使用主要是因为MySQL自带的缓存应用场景有限，1.要求SQL语句必须一模一样（空格大小写都不会忽略）；2.表汇总任何一条数据发生变化，这张表所有缓存都会失效（不适合有数据更新的）。
 >
-> 所以缓存交给orm框架（如mybatis默认开启一级缓存）或者独立的缓存服务（Redis），在MySQL8.0中查询缓存已经被移除了。
+> 所以缓存交给orm框架（如mybatis默认开启一级缓存）或者独立的缓存服务（Redis），在**MySQL8.0中查询缓存已经被移除**了。
 
 
 
@@ -100,7 +121,7 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > **优化器做的事**
 >
-> 通过复杂的算法尽可能优化查询效率的目的。
+> 通过复杂的算法尽可能优化查询效率的目的，但一些与数据表结构设计有关的、部分SQL语句相关的它并不能优化。（比如没有表设计时没建索引，某些查询SQL导致有索引也不能走索引）
 >
 > 比如：
 >
@@ -529,6 +550,10 @@ https://dev.mysql.com/doc/refman/5.7/en/innodb-architecture.html
 
 ### 索引模型推演
 
+#### 数据结构可视化网站
+
+https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
+
 #### 二分查找
 
 > 折半思想，对于有序的等值查询非常高效，时间复杂度是O(log n)。
@@ -865,10 +890,15 @@ https://dev.mysql.com/doc/refman/5.7/en/innodb-architecture.html
 
 #### 事务四种隔离级别
 
-> - Read Uncommitted（RU 未提交读）：事务未提交的数据对其他事务也是可见的，会出现脏读。（未解决任何并发问题）
-> - Read Committed（RC 已提交读）：事务开启后只能看到已提交的事务所做的修改，会出现不可重复读。（解决脏读）
-> - Repeatable Read（RR 可重复读）：在同一个事务中多次读取同样的数据结果是一样的，会出现幻读（但对于InnoDB不可能）。（解决不可重复读）
-> - Serializable（串行化）：最高的隔离级别，通过强制事务的串行执行。（解决所有并发问题）
+> - Read Uncommitted（**RU** 未提交读）：事务未提交的数据对其他事务也是可见的，会出现脏读。（**未解决任何并发问题**）
+>
+> - Read Committed（**RC** 已提交读）：事务开启后只能看到已提交的事务所做的修改，会出现不可重复读。（**解决脏读**）
+>
+> - Repeatable Read（**RR** 可重复读）：在同一个事务中多次读取同样的数据结果是一样的，会出现幻读（但对于InnoDB不可能）。（**解决不可重复读**）
+>
+> - Serializable（串行化）：最高的隔离级别，通过强制事务的串行执行。（**解决所有并发问题**）
+>
+>   ![image-20201202211157091](mysql.assets/image-20201202211157091.png)
 >
 > ![image-20201203125633795](mysql.assets/image-20201203125633795.png)
 
@@ -888,51 +918,53 @@ https://dev.mysql.com/doc/refman/5.7/en/innodb-architecture.html
 
 #### MVCC 核心思想
 
-> 在请求时建立一个快照，后面再来读取这个快照就行。这样可以查到这个事务之前已存在的数据，在它之后被修改、删除、增加的数据查不到。
+> 在**请求时建立一个快照，后面再来读取这个快照**就行。这样可以查到这个事务之前已存在的数据，在它之后被修改、删除、增加的数据查不到。
 >
-> 一个事务能看到的数据版本：
+> **一个事务能看到的数据版本：**
 >
-> 1. 第一次查询前已提交的事务的修改
-> 2. 本事务的修改
+> 1. **第一次查询前已提交的事务的修改**
+> 2. **本事务的修改**
 >
-> 一个事务不能看见的数据版本：
+> **一个事务不能看见的数据版本：**
 >
-> 1. 在本事务第一次查询之后创建的事务（事务id比本事务id大）
-> 2. 活跃的（未提交的）事务的修改
+> 1. **在本事务第一次查询之后创建的事务（事务id比本事务id大）**
+> 2. **活跃的（未提交的）事务的修改**
 
 
 
 #### MVCC实现原理
 
-> InnoDB为每行都实现了三个隐藏字段，
+> InnoDB为每行都实现了三个隐藏字段
 >
 > DB_ROW_ID(6 字节)：行标识
 >
-> DB_TRX_ID(6 字节)：**插入或更新行的最后一个事务的事务id**，自动创建版本号。
+> **DB_TRX_ID**(6 字节)：**插入或更新行的最后一个事务的事务id**，自动创建版本号。
 >
-> DB_ROLL_PTR(7 字节)：回滚指针，记录删除版本号。**数据被删除或记录为旧数据的时候，记录当前事务ID**，没有修改或者删除的时候是空。
+> **DB_ROLL_PTR**(7 字节)：回滚指针，记录删除版本号。**数据被删除或记录为旧数据的时候，记录当前事务ID**，没有修改或者删除的时候是空。
 >
-> InnoDB中一条数据的旧版本存放在undo log中，因为可修改多次所以这些undo log会形成一条链，叫做undo log链。DB_ROLL_PTR就是记录指向undo log链的指针。
+> InnoDB中一条数据的旧版本存放在undo log中，因为可修改多次所以这些undo log会形成一条链，叫做**undo log链**。DB_ROLL_PTR就是记录指向undo log链的指针。
 
 
 
 > 但是，不同的事务它们在undo log链中找数据的时候拿到的数据是不一样的。在这个undo log链里面一个事务怎么判断哪个版本的数据是它应该读取的呢？
 >
-> 因此对一个事务来说，在事务中必须有一个数据结构把本事务id、活跃事务id、当前系统最大事务id存起来，这样才能实现判断。——这个数据结构就叫做Read View（可见性视图），每个事务都会维护一个自己的Read View。
+> 因此对一个事务来说，在事务中必须有一个数据结构把本事务id、活跃事务id、当前系统最大事务id存起来，这样才能实现判断。——这个数据结构就叫做**Read View（可见性视图）**，**每个事务都会维护一个**自己的Read View，在**事务开始第一次查询时**建立。
 >
 > ![image-20201203221310372](mysql.assets/image-20201203221310372.png)
 >
-> m_ids：存生成Read View时当前系统中活跃的读写事务列表。
+> m_ids：存生成Read View时当**前系统中活跃的读写事务列表**。
 >
-> min_trx_id：存生成Read View时当前系统中活跃的读写事务中最小的事务id。
+> min_trx_id：存生成Read View时当前系统中活跃的读写事务中**最小的事务id**。
 >
-> max_trx_id：存生成Read View时系统中应该分配给下一个事务的id值。
+> max_trx_id：存生成Read View时系统中应该分配给**下一个事务的id值（最大事务id）**。
 >
-> creator_trx_id：存生成Read View时当前事务的id。
+> creator_trx_id：存生成Read View时**当前事务的id**。
+>
+> 
 >
 > 有了这个数据结构后，事务判断可见性的规则是这样的：
 >
-> trx_id是查询undo log时依次遍历到的某个事务的id
+> trx_id是某个事务的id
 >
 > 0. 从数据的最早版本开始判断undo log
 > 1. trx_id=creator_trx_id ，说明是本事务修改。能访问
@@ -955,7 +987,11 @@ https://dev.mysql.com/doc/refman/5.7/en/innodb-architecture.html
 
 
 
-### InnoDB 锁的基本类型
+### InnoDB 的锁
+
+> 锁时用来解决资源竞争问题的，普通场景不用加锁，MySQL自动用MVCC就能解决，有些场景得加锁来解决，比如手动在select后面加 share mode。
+>
+> 锁实际上是锁的索引，必定会有索引，没有建索引会默认使用rowId的值当做索引。
 
 #### 锁的粒度
 
@@ -1022,11 +1058,11 @@ https://dev.mysql.com/doc/refman/5.7/en/innodb-architecture.html
 
 ##### 意向锁
 
-> 它是由数据库自己维护的锁，是为了提高加表级锁的性能而生。当给**一行数据**加上共享锁/排他锁前，数据库会自动在**这张表**上加上一个意向共享锁/排他锁。
+> 它是**由数据库自己维护的锁，是为了提高加表级锁的性能而生**。当给**一行数据**加上共享锁/排他锁前，数据库会自动在**这张表**上加上一个意向共享锁/排他锁。
 >
 > 反过来，如果一张表上至少有一个意向锁，说明有其他业务给其中的某些数据行加上了共享锁。一张表上至少有意向排他锁，说明有其他事务给其中某些数据行加上了排他锁。意向锁之间是不冲突的。
 >
-> 在加表级锁时，常规思路是需要判断有没有其他事务锁定了某些行，如果有的话就不能加表级锁，这个时候就需要扫描整张表才能确定能否加表级锁，当表中数据量特别大的时候加锁效率就非常低。于是乎引入了意向锁，这样只需要判断这张表上有没有意向锁就可以判断能否加表级锁了，可以理解成为了提高加表级锁的效率引入的一个标识性锁。
+> 在加表级锁时，常规思路是需要判断有没有其他事务锁定了某些行，如果有的话就不能加表级锁，这个时候就需要扫描整张表才能确定能否加表级锁，当表中数据量特别大的时候加锁效率就非常低。于是乎引入了意向锁，这样只需要判断这张表上有没有意向锁就可以判断能否加表级锁了，可以理解成为了提高加表级锁的效率引入的一个**标识性锁**。
 
 
 
@@ -1088,7 +1124,7 @@ https://dev.mysql.com/doc/refman/5.7/en/innodb-architecture.html
 >
 > 另外，查询(5,7]，会锁住(4,7]和(7,10]，查询(8,10] 会锁住(7,10]和(10,+∞)，会将最后一个key的下一个左开右闭区间也锁住。这样是为了解决幻读（阻塞插入）情况。
 
-> 本来RR级别是可能出现幻读问题的，但是对于InnoDB来说是不可能的，就是因为InnoDB使用临界锁将幻读问题解决的。
+> 本来RR级别是可能出现幻读问题的，但是对于InnoDB来说是不可能的，就是因为InnoDB使用**临界锁将幻读问题解决**的。
 >
 > ![image-20201203125633795](mysql.assets/image-20201203125633795.png)
 
@@ -1168,56 +1204,6 @@ https://dev.mysql.com/doc/refman/5.7/en/innodb-architecture.html
 > Innodb_row_lock_waits：从系统启动到现在总共等待的次数
 >
 > 注意这个是非实时的。
-
-
-
-
-
-
-
-增删改自动开启事务。
-
-insert——幻读（插入数据导致的）
-
-不可重复读 update/delete
-
-![image-20201202211157091](mysql.assets/image-20201202211157091.png)
-
-
-
-回滚指针：undolog 链
-
-![image-20201202213451390](mysql.assets/image-20201202213451390.png)
-
-read view （一致性视图） 存储内容。
-
-事务开始第一次查询时会建立一致性视图。
-
-锁是用来解决资源竞争问题
-
-意向锁：标识性（向火车上的卫生间上的标识灯）
-
-![image-20201202220559007](mysql.assets/image-20201202220559007.png)
-
-
-
-间隙锁的设计，专门用来阻塞插入的，解决幻读问题。
-
-![image-20201202223315959](mysql.assets/image-20201202223315959.png)
-
-
-
-普通场景不用加锁，MySQL自动用MVCC就能解决，有些场景得在select后面加 share mode，叫MySQL加锁来解决。
-
-锁实际上是锁的索引，必定会有索引，没有建索引会默认使用rowId的值当做索引。
-
-![image-20201202224340771](mysql.assets/image-20201202224340771.png)
-
-
-
-死锁
-
-有自动检测死锁的算法，MySQL会检测。
 
 
 
@@ -1637,4 +1623,54 @@ read view （一致性视图） 存储内容。
 
 
 
-MySQL 中文文档：https://www.mysqlzh.com/
+# 自我积累
+
+#### Union 与 Union ALL
+
+> 它们内部的 SELECT 语句必须拥有相同数量的列。
+>
+> Union：对两个结果集进行并集操作，不包括重复行，同时进行默认规则的排序；
+>
+> Union All：对两个结果集进行并集操作，包括重复行，不进行排序；
+
+
+
+> 子查询中带UNION的，一般会导致关联的主查询全表扫描。可以考虑将子查询中的UNION换成非子查询的LEFT JOIN，提升至eq_ref
+
+
+
+#### IN OR
+
+> [OR](https://dev.mysql.com/doc/refman/5.7/en/logical-operators.html#operator_or)：会从左向右逐条比较(遵循短路)，时间复杂度为 O(n)。
+>
+>  [IN](https://dev.mysql.com/doc/refman/5.7/en/comparison-operators.html#operator_in)：先将 IN 中数据集**排序**，再用**二分法**进行比较是否在数据集中，这样时间复杂度是 O(log n)。它还可用于**数据集与数据集的比较**，但需注意**不要混合使用引号和非引号值**，他们比较规则是不一样的。
+>
+> 在字段较多的时候，使用in操作符更加直观。
+> in操作符一般比or操作符执行速度更快
+> in的最大优点就是可以包含其他的select子句，更加具有动态性
+
+
+
+#### GROUP_CONCAT
+
+> [GROUP_CONCAT(expr)](https://dev.mysql.com/doc/refman/5.7/en/aggregate-functions.html#function_group-concat)
+>
+> ```sql
+> GROUP_CONCAT([DISTINCT] expr [,expr ...]
+>              [ORDER BY {unsigned_integer | col_name | expr}
+>                  [ASC | DESC] [,col_name ...]]
+>              [SEPARATOR str_val])
+> ```
+>
+> ```sql
+> GROUP_CONCAT(bsb.xm ORDER BY bsb.gh ASC)
+> ```
+>
+> 
+
+
+
+#### LOCATE()和FIND_IN_SET()
+
+> - [locate(substr,str,[pos])](https://dev.mysql.com/doc/refman/5.7/en/string-functions.html#function_locate) 查找substr在str中第一次出现的位置，在str的pos长度之后查找，为空时返回0
+> - [FIND_IN_SET(str,strlist)](https://dev.mysql.com/doc/refman/5.7/en/string-functions.html#function_find-in-set)：strlist 以”,”(英文逗号)分隔，返回str在strlist中的位置，不存在返回0。【适用于直接存储或在子查询中拼接的，以逗号分隔的id或code】
