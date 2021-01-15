@@ -318,7 +318,7 @@ todo？？？上面的对象头存储所占的空间没搞懂？？？
 
 
 
-> **每个对象都会与一个监视器monitor关联**，我们可以把它理解成一把锁，当一个线程想要执行一段被synchronized修饰的同步方法或代码块时该线程先获取奥synchronized修饰的对象对应的monitor。
+> **每个对象都会与一个监视器monitor关联**，我们可以把它理解成一把锁，当一个线程想要执行一段被synchronized修饰的同步方法或代码块时该线程先获取到synchronized修饰的对象对应的monitor。
 >
 > monitorenter表示取获得一个对象监视器，monitorexit表示释放监视器的所有权，使得其他被阻塞的线程可以尝试去获得这个监视器。
 >
