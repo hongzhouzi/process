@@ -8,7 +8,7 @@ SQL函数官方API：https://dev.mysql.com/doc/refman/5.7/en/sql-function-refere
 
 ### 查询SQL是如何执行的
 
-![image-20201129124803832](mysql.assets/image-20201129124803832.png)
+![image-20201129124803832](./mysql.assets/image-20201129124803832.png)
 
 
 
@@ -97,7 +97,7 @@ SQL函数官方API：https://dev.mysql.com/doc/refman/5.7/en/sql-function-refere
 
 > 语法解析会**对SQL做一些语法检查**，如单引号、括号是否闭合等。再根据MySQL定义的语法规则根据SQL语句生成一个数据结构，这个数据解析称为“解析树（select_lex）”。
 >
-> ![image-20201130212045579](mysql.assets/image-20201130212045579.png)
+> ![image-20201130212045579](./mysql.assets/image-20201130212045579.png)
 >
 > 词法语法分析是一个非常基础的功能，Java 的编译器、百度搜索引擎如果要识别语句，必须也要有词法语法分析功能。
 > 任何数据库的中间件，要解析SQL完成路由功能，也必须要有词法和语法分析功能，比如Mycat, Sharding-JDBC (用到了Druid Parser)。在市面。上也有很多的开源的词法解析的工具(比如LEX, Yacc)。
@@ -206,7 +206,7 @@ SQL函数官方API：https://dev.mysql.com/doc/refman/5.7/en/sql-function-refere
 >
 > 避免这个问题，InnoDB把**所有对页面的修改操作专门写入一个日志文件，这个日志叫做redo log(重做日志)**，如果遇到没有同步到磁盘的数据，在数据库启动的时候就会根据这个日志文件进行恢复操作（实现 **crash-safe**）。**事务中的持久性就是用它来实现**。
 >
-> ![image-20201206154252303](mysql.assets/image-20201206154252303.png)
+> ![image-20201206154252303](./mysql.assets/image-20201206154252303.png)
 
 > 刷盘是随机IO，记录日志时顺序IO（连续写），顺序IO效率更高，本质上是数据集中存储和分散存储的区别。因此先把修改写入日志文件，在保证了内存数据的安全性后可以延迟刷盘时机，进而提升系统吞吐。
 >
@@ -231,7 +231,7 @@ SQL函数官方API：https://dev.mysql.com/doc/refman/5.7/en/sql-function-refere
 
 > 下图是磁盘的构造，磁盘的盘片不停地旋转，磁头会在磁盘表面画出一个圆形的区域，这个叫**磁道**。从内到外不同半径有很多磁道，还有半径线把磁道分割成了**扇区**。如果要读写数据，必须找到数据对应的扇区，找对应扇区这个过程就叫做**寻址**。
 >
-> ![image-20201206154733824](mysql.assets/image-20201206154733824.png)
+> ![image-20201206154733824](./mysql.assets/image-20201206154733824.png)
 >
 > 随机IO：需要的数据是随机分散在磁盘上不同页的不同扇区中，那么找到相应的数据需要等到磁臂旋转到指定的页，然后盘片寻找到对应的扇区才能找到需要的一块数据，一次进行此过程直到找完所有数据，因此它速度较慢。
 >
@@ -294,7 +294,7 @@ SQL函数官方API：https://dev.mysql.com/doc/refman/5.7/en/sql-function-refere
 
 > 总体上可以把MySQL分为三层，跟客户端对接的连接层、真正执行操作的服务层、和硬件打交道的存储引擎层。
 
-![image-20201206111321717](mysql.assets/image-20201206111321717.png)
+![image-20201206111321717](./mysql.assets/image-20201206111321717.png)
 
 > - 连接层：客户端连接到MySQL服务器3306端口，必须跟服务端建立连接，管理所有的连接，验证客户端的身份和权限这些功能就在连接层完成。
 > - 服务层：连接层会把SQL交给服务层，服务层对SQL进行处理后调用存储引擎的接口查询数据，然后返回结果。
@@ -302,7 +302,7 @@ SQL函数官方API：https://dev.mysql.com/doc/refman/5.7/en/sql-function-refere
 
 **MySQL整体架构**
 
-![image-20201202145912180](mysql.assets/image-20201202145912180.png)
+![image-20201202145912180](./mysql.assets/image-20201202145912180.png)
 
 1. **Connector**：用来支持各种语言和Sql交互，如Java、Python、PHP的驱动程序。
 
@@ -322,7 +322,7 @@ SQL函数官方API：https://dev.mysql.com/doc/refman/5.7/en/sql-function-refere
 >
 > 磁盘结构分为：系统表空间、独占表空间、通用表空间、临时表空间、undo 表空间。
 
-![image-20201206180822657](mysql.assets/image-20201206180822657.png)
+![image-20201206180822657](./mysql.assets/image-20201206180822657.png)
 
 https://dev.mysql.com/doc/refman/5.7/en/innodb-architecture.html
 
@@ -345,7 +345,7 @@ https://dev.mysql.com/doc/refman/5.7/en/innodb-architecture.html
 >
 > 传统LRU一般通过Map+链表实现，value存的是在链表中的地址。有数据访问时，将最近访问的数据移动到head，链表到指定长度了就从tail淘汰。
 >
-> ![image-20201207165411858](mysql.assets/image-20201207165411858.png)
+> ![image-20201207165411858](./mysql.assets/image-20201207165411858.png)
 
 **预读取**
 
@@ -371,7 +371,7 @@ https://dev.mysql.com/doc/refman/5.7/en/innodb-architecture.html
 
 > 将LUR中的list分成两部分，一部分放热数据（New Sublist 热区）、一部分放冷数据（Old Sublist 冷区），中间有个分割线。
 >
-> ![image-20201207214048293](mysql.assets/image-20201207214048293.png)
+> ![image-20201207214048293](./mysql.assets/image-20201207214048293.png)
 >
 > **冷热区数据移动策略**
 >
@@ -431,7 +431,7 @@ https://dev.mysql.com/doc/refman/5.7/en/innodb-architecture.html
 > | 1(默认，实时写，实时刷) | 每次事务提交是都将log buffer的数据写入log file，并且执行flush刷到磁盘。 |
 > | 2(实时写，延迟刷)       | 每次事务提交都将log buffer的数据写入log file，每秒钟执行一次flush。 |
 >
-> ![image-20201207175038547](mysql.assets/image-20201207175038547.png)
+> ![image-20201207175038547](./mysql.assets/image-20201207175038547.png)
 
 
 
@@ -449,7 +449,7 @@ https://dev.mysql.com/doc/refman/5.7/en/innodb-architecture.html
 >
 > 简单理解：解决部分写失效问题，这个问题怎么来的呢？OS和InnoDB页大小不一致那么在写的过程中如果宕机就可能损坏页，所以在写之前生成个备份数据。称之为双写缓冲。
 >
-> ![image-20201207200542989](mysql.assets/image-20201207200542989.png)
+> ![image-20201207200542989](./mysql.assets/image-20201207200542989.png)
 >
 > 和redo log一样，double write由两部分组成，一部分是内存的double write，一部分是磁盘上的double write。因为double write是顺序写入的，所以不会带来很大的开销。在默认情况下，所有的表共享一个系统表空间，这个文件会越来越大，而且它的空间不会收缩。
 
@@ -497,7 +497,7 @@ https://dev.mysql.com/doc/refman/5.7/en/innodb-architecture.html
 
 > 加上binlog，更新过程的日志写入时机如下：
 >
-> ![image-20201207200650593](mysql.assets/image-20201207200650593.png)
+> ![image-20201207200650593](./mysql.assets/image-20201207200650593.png)
 >
 > 先记录到内存，再写日志文件。记录redo log分为两个阶段。存储引擎和Server记录不同的日志。先记录redo 再记录binlog。
 >
@@ -570,7 +570,7 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > 这样就实现了在 O(log n) 的查询时间复杂度上也能快速插入。
 >
-> ![image-20201208142122593](mysql.assets/image-20201208142122593.png)、
+> ![image-20201208142122593](./mysql.assets/image-20201208142122593.png)、
 >
 > 但是，它的查询耗时与这棵树的深度相关，最坏情况下（插入的数据是有序的会变成链表，这种树又叫做斜树）时间复杂度会退化成O(n)。造成它倾斜的原因是左右子树深度差太大，于是平衡二叉树诞生了。
 
@@ -580,15 +580,15 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > AVL树名字是以发明这个数据结构的两位作者的名字简写定义的。
 >
-> 平衡问题虽然解决了，但是用树结构来存储索引时，访问一个节点就要跟磁盘之间发生一次IO操作。InnoDB操作磁盘的最小单位是一页（一个磁盘块），大小是16K(16384字节)。那么树的节点就必须设计成16K的大小，不然就会出现读不完或者读不够的情况。如果一个节点只存一个键值+数据+引用可能只用不到100字节，远达不到16K的容量。
+> 平衡问题虽然解决了，但是用树结构来存储索引时，**访问一个节点就要跟磁盘之间发生一次IO操作**。InnoDB操作磁盘的最小单位是一页（一个磁盘块），大小是**16KB(16384字节)**。那么**树的节点就必须设计成16KB**的大小，不然就会出现读不完或者读不够的情况。如果一个节点**只存一个键值+数据+引用可能只用不到100字节**，远达不到16K的容量。
 >
 > 如果一个节点只存1个这样的单元就需要读更多的节点，发生更多的IO操作。
 >
-> ![image-20201208151058068](mysql.assets/image-20201208151058068.png)
+> ![image-20201208151058068](./mysql.assets/image-20201208151058068.png)
 >
 > 如果使用这种存储方式，只有6条数据时就需要跟磁盘交互3次，如果数据量更大，意味着时间也会更大。
 >
-> 解决这个问题就需要让每个节点存储更多的数据；节点上的关键字数量越多，指针数也就越多，意味着可以有更多的分叉（路数）。分叉越多，树的深度就会减少，深度减少了所需IO次数也就减少了。这样多路平衡查找树就诞生了。
+> 解决这个问题就需要让每个节点存储更多的数据；节点上的关键字数量越多，指针数也就越多，意味着可以有**更多的分叉（路数）**。分叉越多，树的深度就会减少，深度减少了所需IO次数也就减少了。这样多路平衡查找树就诞生了。
 
 
 
@@ -596,53 +596,53 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 
 > 在AVL树基础上变成了多路。有个特点：分叉树（路数）永远比关键字数多1，如果每个节点存储两个关键字，那么就会有三个指针指向三个子节点（真实情况存的路数更多）。
 >
-> ![image-20201208154729356](mysql.assets/image-20201208154729356.png)
+> ![image-20201208154729356](./mysql.assets/image-20201208154729356.png)
 >
-> 多路平衡查找树保持平衡：子节点数超过定义的最大路数就会**分裂**（增加深度的方式降低路数）；如果删除节点就会有**合并**。
+> 多路平衡查找树保持平衡：子节点数超过定义的最大路数就会**分裂**（**增加深度的方式降低路数**）；如果删除节点就会有**合并**。
 >
-> ![image-20201208165257236](mysql.assets/image-20201208165257236.png)
+> ![image-20201208165257236](./mysql.assets/image-20201208165257236.png)
 >
-> 节点的分裂和合并，就是InnoDB页的分裂和合并。如果索引键值有序，写满一页接着开辟一个新的页。
+> **节点的分裂和合并，就是InnoDB页的分裂和合并**。如果索引键值有序，写满一页接着开辟一个新的页。
 >
 > 更新时会有大量索引的结构调整，所以这也是不用在频繁更新的列上建索引，不要更新主键。
 >
-> 如果索引键值无序，存储数据过程造成大量磁盘碎片，带来频繁的page分裂和合并。有序的主键存储内存是连续的，如果使用UUID（无序，不连续）作为主键会导致内存碎片多，查询效率低。
+> 如果**索引键值无序，存储数据过程造成大量磁盘碎片，带来频繁的page分裂和合并**。有序的主键存储内存是连续的，如果使用UUID（无序，不连续）作为主键会导致内存碎片多，查询效率低。
 >
-> PS：磁盘碎片指的是硬盘读写过程中产生的不连续文件。硬盘上非连续写入的档案会产生磁盘碎片，磁盘碎片会加长硬盘的寻道时间，影响系统效能。 
+> PS：磁盘碎片指的是硬盘读写过程中产生的**不连续文件**。硬盘上非连续写入的档案会产生磁盘碎片，磁盘碎片会加长硬盘的寻道时间，影响系统效能。 
 >
-> ![image-20201208165509529](mysql.assets/image-20201208165509529.png)
+> ![image-20201208165509529](./mysql.assets/image-20201208165509529.png)
 
 #### B+Tree
 
 > 特点：
 >
-> 1. 它的关键字的数量和路数相等
-> 2. B+Tree的根节点和枝节点中都不会存储数据，只有叶子节点才存储数据（搜到关键字不会直接返回，会到最后一层的叶子节点上拿地址）
-> 3. 每个叶子节点增加了一个指向相邻叶子节点的指针，它的最后一个数据会指向下一个叶子节点 的第一个数据，形成了一个有序链表结构
+> 1. 它的**关键字的数量和路数相等**
+> 2. B+Tree的**根节点和枝节点中都不会存储数据，只有叶子节点才存储数据**（搜到关键字不会直接返回，会到最后一层的叶子节点上拿地址）
+> 3. 每个叶子节点增加了一个指向相邻叶子节点的指针，它的最后一个数据会指向下一个叶子节点的第一个数据，形成了一个有序链表结构
 >
 > 检索过程：查询28
 >
-> ![image-20201208174717000](mysql.assets/image-20201208174717000.png)
+> ![image-20201208174717000](./mysql.assets/image-20201208174717000.png)
 
 
 
 **B+Tree特性带来的优势**：
 
 > 1. 在B Tree基础上改造，每个节点存储更多关键字；路数更多
-> 2. 扫库、扫表能力更强（对表进行全表扫描只需遍历叶子节点即可，不需遍历整棵B+Tree）
-> 3. 读写磁盘能力相对B Tree来说更强（根节点和枝节点不保存数据，所以每个节点可以保存更多的关键字，一次IO加载的关键字更多）
-> 4. 排序能力更强（因为叶子节点上有一个数据区的指针，数据形成了链表）
-> 5. 效率更加稳定（B+Tree永远是在叶子节点上拿到数据，所以IO次数是稳定的）
+> 2. **扫库、扫表能力更强**（对表进行**全表扫描只需遍历叶子节点**即可，不需遍历整棵B+Tree）
+> 3. **读写磁盘能力相对B Tree来说更强**（根节点和枝节点不保存数据，所以**每个节点可以保存更多的关键字，一次IO加载的关键字更多**）
+> 4. **排序能力更强**（因为叶子节点上有一个数据区的指针，数据形成了链表）
+> 5. **效率更加稳定**（B+Tree永远是在叶子节点上拿到数据，所以IO次数是稳定的）
 
 > 假设一条记录是16 bytes，一个叶子节点（一页）可以存储10条记录，非叶子节点能存储的指针：
 >
-> 假设索引字段+指针大小为16字节。非叶子节点（一页）可以存储1000个这样的单元（键值+指针）代表有1000个指针。
+> 假设索引字段+指针大小为16(KB)。非叶子节点（一页）可以存储1000个这样的单元（键值+指针）代表有1000个指针。
 >
 > 树深度为2的时候，有1000^2个叶子节点，可以存储的数据为1000 * 10000 * 10 = (千万级别)。
 >
 > 在查找数据时一次页面的查找代表一次IO，也就是说，一张千万级别的表查询数据最多需要访问3次IO。在InnoDB中B+Tree深度为1-3层，能满足千万级别的数据存储。
 >
-> ![image-20201210222509707](mysql.assets/image-20201210222509707.png)
+> ![image-20201210222509707](./mysql.assets/image-20201210222509707.png)
 
 
 
@@ -661,7 +661,7 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > 特点：
 >
-> 时间复杂度O(1)，查询速度快，但它存储的数据不是按顺序存储的，不能用于排序，只能支持等值查询（ =、in），不支持范围查询（> 、>=、< 、<=、between and）。如果字段重复值会出现大量哈希冲突效率会降低。
+> 时间复杂度O(1)，查询速度快，但它存储的数据不是按顺序存储的，**不能用于排序，只能支持等值查询**（ =、in），**不支持范围查询**（> 、>=、< 、<=、between and）。如果字段重复值会出现大量哈希冲突效率会降低。
 >
 > 注意：在InnoDB中不能显式地创建一个哈希索引（所谓的支持哈希索引指的是AHI，自适应哈希，它是InnoDB自动为buffer pool中的热点页创建的索引）
 
@@ -675,7 +675,7 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > 主键索引存储结构：
 >
-> ![image-20201210222608402](mysql.assets/image-20201210222608402.png)
+> ![image-20201210222608402](./mysql.assets/image-20201210222608402.png)
 >
 > 
 
@@ -683,38 +683,35 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 
 > 在InnoDB的某个索引的叶子节点上，它直接存储了我们的数据。**索引即数据，数据即索引**。
 >
-> ![image-20201210223333474](mysql.assets/image-20201210223333474.png)
+> ![image-20201210223333474](./mysql.assets/image-20201210223333474.png)
 >
-> 
+
+
+
+###### 聚集索引（聚簇索引）
+
+> 又称“主键索引”，索引键值的**逻辑顺序与表数据行的物理存储顺序一致**。
 >
-> **聚集索引（聚簇索引）：**
+> **InnoDB 组织数据的方式就是（聚集）索引**组织表，如果一张表创建了主键索引，那么这个**主键索引就是聚集索引**，决定数据行的物理存储顺序。
+
+###### 非聚集索引
+
+> 又称“辅助索引”、“二级索引”，索引中键值的**逻辑顺序与磁盘上行的物理存储顺序不一致**，它叶**子节点存储的是聚集索引的key**（该记录对应的主键值）。
 >
-> 索引键值的**逻辑顺序与表数据行的物理存储顺序是一致的**。
+> 它细分成：**普通索引，唯一索引，全文索引**。
 >
-> InnoDB 组织数据的方式就是（聚集）索引组织表，如果一张表创建了主键索引，那么这个主键索引就是聚集索引，决定数据行的物理存储顺序。
+> 检索过程：通过非聚集索引查找该索引key对应的聚集索引的key，然后通过聚集索引的key到主键索引树上查找对应的数据，这个过程称为**回表**！
 >
-> 
+> 比如用name索引查询一条记录，它会在**二级索引的叶子节点找到数据对应的主键值**，再到主键索引对应的叶子节点取数据。
 >
-> **主键索引和辅助索引**：
->
-> 如果有主键索引，那么主键索引就是聚集索引，**其他的索引统一叫做“二级索引”**。
->
-> **二级索引存储的是二级索引的键值，它的键值逻辑顺序与物理行的顺序不一致**。二级索引的叶子节点存的这条记录对应的主键的值。
->
-> 
->
-> **二级索引检索流程：**
->
-> 比如用name索引查询一条记录，它会在二级索引的叶子节点找到数据对应的主键值，再到主键索引对应的叶子节点拿到存储地址，最后根据地址取到数据。
->
-> ![image-20201210225604113](mysql.assets/image-20201210225604113.png)
->
-> 
->
-> **InnoDB处理索引：**
->
+> ![image-20201210225604113](./mysql.assets/image-20201210225604113.png)
+
+
+
+###### InnoDB处理索引
+
 > 1. 若有主键，InnoDB会选择**主键**作为聚集索引
-> 2. 若无主键，InnoDB会选择**第一个不包含null值的唯一索引**作为主键索引
+>2. 若无主键，InnoDB会选择**第一个不包含null值的唯一索引**作为主键索引
 > 3. 若没有这样的唯一索引，则InnoDB会选择**内置6字节长的ROWID作为隐藏的聚集索引**，它会随着行记录的写入而主键递增
 
 
@@ -745,7 +742,7 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > 在SQL执行计划中，Extra里面值为“Using index”就代表属于索引覆盖的情况。
 >
-> ![image-20201212145210552](mysql.assets/image-20201212145210552.png)
+> ![image-20201212145210552](./mysql.assets/image-20201212145210552.png)
 
 
 
@@ -785,13 +782,13 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > 查看默认的条件下推参数：
 >
-> ![image-20201212161709073](mysql.assets/image-20201212161709073.png)
+> ![image-20201212161709073](./mysql.assets/image-20201212161709073.png)
 >
 > 执行计划中如下即执行过程会用到索引下推
 >
-> ![image-20201212161758339](mysql.assets/image-20201212161758339.png)
+> ![image-20201212161758339](./mysql.assets/image-20201212161758339.png)
 >
-> ![image-20201212162143502](mysql.assets/image-20201212162143502.png)
+> ![image-20201212162143502](./mysql.assets/image-20201212162143502.png)
 
 
 
@@ -868,19 +865,19 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 
 > 读到其他事务未提交的数据，造成读不一致
 >
-> ![image-20201203104417922](mysql.assets/image-20201203104417922.png)
+> ![image-20201203104417922](./mysql.assets/image-20201203104417922.png)
 
 2. ##### 不可重复读
 
 > 读到其他事务已提交的数据（针对update和delete），造成读不一致
 >
-> ![image-20201203104641331](mysql.assets/image-20201203104641331.png)
+> ![image-20201203104641331](./mysql.assets/image-20201203104641331.png)
 
 3. ##### 幻读
 
 > 读到其他事务插入的数据（针对insert），造成读不一致
 >
-> ![image-20201203104755199](mysql.assets/image-20201203104755199.png)
+> ![image-20201203104755199](./mysql.assets/image-20201203104755199.png)
 
 > 注意不可重复读和幻读都是读到已提交的事务，但是它们针对的对象不同，不可重复读针对的是update和delete，幻读针对的是insert。
 >
@@ -898,9 +895,9 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > - Serializable（串行化）：最高的隔离级别，通过强制事务的串行执行。（**解决所有并发问题**）
 >
->   ![image-20201202211157091](mysql.assets/image-20201202211157091.png)
+>   ![image-20201202211157091](./mysql.assets/image-20201202211157091.png)
 >
-> ![image-20201203125633795](mysql.assets/image-20201203125633795.png)
+> ![image-20201203125633795](./mysql.assets/image-20201203125633795.png)
 
 
 
@@ -950,7 +947,7 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > 因此对一个事务来说，在事务中必须有一个数据结构把本事务id、活跃事务id、当前系统最大事务id存起来，这样才能实现判断。——这个数据结构就叫做**Read View（可见性视图）**，**每个事务都会维护一个**自己的Read View，在**事务开始第一次查询时**建立。
 >
-> ![image-20201203221310372](mysql.assets/image-20201203221310372.png)
+> ![image-20201203221310372](./mysql.assets/image-20201203221310372.png)
 >
 > m_ids：存生成Read View时当**前系统中活跃的读写事务列表**。
 >
@@ -1086,7 +1083,7 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > 主键索引里面除了存索引之外，还存储了完整的数据。所以我们通过辅助索引锁定一行数据的时候，它和检索数据的步骤是一样的，会通过主键值找到主键索引，然后锁定。所以**通过唯一索引给数据行加锁，主键索引**
 >
-> ![image-20201205110112010](mysql.assets/image-20201205110112010.png)
+> ![image-20201205110112010](./mysql.assets/image-20201205110112010.png)
 >
 > 
 
@@ -1098,13 +1095,13 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > 数据库中存的**主键值称为Record**；由这些**Record隔开的不存在数据的区间称为Gap(左开右开的间隙区间)**；**Gap连同它左边的记录称为Next-key（临建的区间）（左开右闭的区间）**，
 >
-> ![image-20201205111617647](mysql.assets/image-20201205111617647.png)
+> ![image-20201205111617647](./mysql.assets/image-20201205111617647.png)
 
 ##### 记录锁
 
 > 对于唯一性的索引（唯一索引和主键索引）使用**等值查询**精准匹配到一条记录的时候，这个时候使用的就是记录锁。
 >
-> ![image-20201205114625345](mysql.assets/image-20201205114625345.png)
+> ![image-20201205114625345](./mysql.assets/image-20201205114625345.png)
 
 ##### 间隙锁
 
@@ -1112,7 +1109,7 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > 间隙锁主要是阻塞insert，相同的间隙锁之间不冲突。
 >
-> ![image-20201205114551793](mysql.assets/image-20201205114551793.png)
+> ![image-20201205114551793](./mysql.assets/image-20201205114551793.png)
 
 ##### 临建锁
 
@@ -1120,13 +1117,13 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > MySQL中默认的行锁算法，相当于记录锁加上间隙锁。唯一性索引等值查询匹配到一条记录的时候，会退化成记录锁；没有匹配到任何记录的时候，会退化成间隙锁。
 >
-> ![image-20201205115839197](mysql.assets/image-20201205115839197.png)
+> ![image-20201205115839197](./mysql.assets/image-20201205115839197.png)
 >
 > 另外，查询(5,7]，会锁住(4,7]和(7,10]，查询(8,10] 会锁住(7,10]和(10,+∞)，会将最后一个key的下一个左开右闭区间也锁住。这样是为了解决幻读（阻塞插入）情况。
 
 > 本来RR级别是可能出现幻读问题的，但是对于InnoDB来说是不可能的，就是因为InnoDB使用**临界锁将幻读问题解决**的。
 >
-> ![image-20201203125633795](mysql.assets/image-20201203125633795.png)
+> ![image-20201203125633795](./mysql.assets/image-20201203125633795.png)
 
 
 
@@ -1213,7 +1210,7 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 
 > 一个查询流程由许多环节组成，每个环节都会消耗时间，所以要减少查询锁消耗的时间可以考虑从每个环节都入手。
 
-![image-20201129124803832](mysql.assets/image-20201129124803832.png)
+![image-20201129124803832](./mysql.assets/image-20201129124803832.png)
 
 
 
@@ -1273,13 +1270,13 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > SQL Thread：读取 relay log，把数据写入到数据
 >
-> ![image-20201214161945957](mysql.assets/image-20201214161945957.png)
+> ![image-20201214161945957](./mysql.assets/image-20201214161945957.png)
 >
 > 
 >
 > 做了主从复制方案后，只需把数据写入master节点，读的请求可以分担到slave节点。
 >
-> ![image-20201214163825236](mysql.assets/image-20201214163825236.png)
+> ![image-20201214163825236](./mysql.assets/image-20201214163825236.png)
 
 
 
@@ -1293,13 +1290,13 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 
 > 把数据库**按照业务拆分**成不同的数据库
 >
-> ![image-20201214164948174](mysql.assets/image-20201214164948174.png)
+> ![image-20201214164948174](./mysql.assets/image-20201214164948174.png)
 
 ###### 水平分表
 
 > 把单张的数据表**按照一定规则（e.g. 创建日期的年月**）分布到多个数据库。
 >
-> ![image-20201214165015275](mysql.assets/image-20201214165015275.png)
+> ![image-20201214165015275](./mysql.assets/image-20201214165015275.png)
 
 
 
@@ -1349,7 +1346,7 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > mysqldump --help （mysqldumpslow --help）
 >
-> ![image-20201214220626594](mysql.assets/image-20201214220626594.png)
+> ![image-20201214220626594](./mysql.assets/image-20201214220626594.png)
 >
 > Count：代表这个SQL执行了多少次;
 > Time：代表执行的时间，括号里面是累计时间;
@@ -1370,7 +1367,7 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > 用于显示用户运行线程，可以根据id号kill线程
 >
-> ![image-20201214221756303](mysql.assets/image-20201214221756303.png)
+> ![image-20201214221756303](./mysql.assets/image-20201214221756303.png)
 >
 > | 列      | 含义                                                         |
 > | ------- | ------------------------------------------------------------ |
@@ -1623,6 +1620,40 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 
 
 
+# 数据库设计
+
+## 范式与反范式
+
+> 关系型数据库设计时主要遵循三大范式，在某些场景下为了避免过多的表关联和建合理的索引会有反范式。范式的目的是避免数据冗余、节省存储空间、保持数据一致性。反范式的目的是：避免过多的表关联、设计有效的索引。
+>
+> 1. 每个字段只包含最小的信息属性
+> 2. 满足1，且有主键，非主键字段依赖主键
+> 3. 满足2，且非主键字段不能相互依赖
+>
+> 三范式总结来说：一张表中有主键，每个字段只包含最小的信息属性，每个非主键属性依赖主键，非主键之间不能相互依赖。
+
+
+
+## 其他要素
+
+
+
+字段相关
+
+> 1. 业务详情表要记录【creator_id、create_datetime、updator_id、update_datetime】字段
+> 2. 数据长度根据业务需求取到合适
+
+
+
+命名相关，参考[p3c](https://github.com/alibaba/p3c)
+
+> 1. 表名
+> 2. 字段名
+
+
+
+
+
 # 自我积累
 
 #### Union 与 Union ALL
@@ -1674,3 +1705,26 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 
 > - [locate(substr,str,[pos])](https://dev.mysql.com/doc/refman/5.7/en/string-functions.html#function_locate) 查找substr在str中第一次出现的位置，在str的pos长度之后查找，为空时返回0
 > - [FIND_IN_SET(str,strlist)](https://dev.mysql.com/doc/refman/5.7/en/string-functions.html#function_find-in-set)：strlist 以”,”(英文逗号)分隔，返回str在strlist中的位置，不存在返回0。【适用于直接存储或在子查询中拼接的，以逗号分隔的id或code】
+
+
+
+#### in和exists
+
+> IN适合于外表大而内表小的情况；EXISTS适合于外表小而内表大的情况。但具体要看实际情况。
+>
+> https://www.cnblogs.com/qlqwjy/p/8598091.html
+
+
+
+#### find_in_set
+
+> 例子：
+>
+> ```xml
+> SELECT GROUP_CONCAT(pdi.`name` separator '\r\n')
+>                FROM pl_dict_item pdi
+>                WHERE pdi.dict_code = 'TXLXYY' AND FIND_IN_SET(pdi.`code`, swsa.withdraw_code) > 0) withdrawName,
+>                
+> ```
+>
+> 
