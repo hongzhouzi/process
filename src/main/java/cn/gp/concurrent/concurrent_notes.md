@@ -6,8 +6,17 @@
 >
 > **并发和并行**
 >
-> > - 并行：两个或多个事件在同一时刻发生。
-> > - 并发：两个或多个事件在同一时间间隔发生。
+> - 串行：一次只能取得一个任务并执行这一个任务
+>
+> - 并行：可以同时通过多线程的方式取得多个任务，并以多进程或多线程的方式同时执行这些任务
+> - 并发：并发是一种现象，同时运行多个程序或多个任务需要被处理的现象。（两个或多个事件在同一时间间隔发生）这些任务可能是串行执行的，也可能是并行执行的，与CPU核心数无关，是操作系统进程调度和CPU上下文切换达到的结果
+>
+> 解决并发的思路通常是将大任务分解成小任务：
+>
+> - 可以用多线程并行的方式去执行这些小任务达到高效率
+> - 用单线程配合多路复用执行这些小任务来达到高效率
+>
+> 
 
 ### 影响服务吞吐的因素
 
@@ -2435,6 +2444,15 @@ public static ExecutorService newFixedThreadPool(int nThreads) {
 ##### newCachedThreadPool
 
 > 返回一个可根据实际情况调整线程个数的线程池，若有任务则创建线程执行任务（创建线程时不限制最大线程数量），若无任务则不创建线程，线程空闲60s后会自动回收。 
+>
+> 应用场景
+>  	1. 淘宝订单业务:下单之后如果三十分钟之内没有付款就自动取消订单。 
+>  	2. 饿了吗订餐通知:下单成功后60s之后给用户发送短信通知。
+>  	3. 关闭空闲连接。服务器中，有很多客户端的连接，空闲一段时间之后需要关闭之。
+>  	4. 缓存。缓存中的对象，超过了空闲时间，需要从缓存中移出。
+>  	5. 任务超时处理。在网络协议滑动窗口请求应答式交互时，处理超时未响应的请求等。
+>
+> 参考：https://www.cnblogs.com/myseries/p/10944211.html
 
 ```java
 public static ExecutorService newCachedThreadPool() {
@@ -2453,7 +2471,7 @@ public static ExecutorService newCachedThreadPool(ThreadFactory threadFactory) {
 **特点**
 
 > 1. 核心线程数为0，最大线程数为Integer.MAX_VALUE；
-> 2. 阻塞队列为SynchronousQueue（注意：队列容量的无限加大可能导致OOM）
+> 2. 阻塞队列为SynchronousQueue
 
 **用途**
 
@@ -2521,6 +2539,74 @@ public static ExecutorService newSingleThreadExecutor() {
 > ？？？
 
 
+
+#### 自定义
+
+```java
+    /**
+     * 线程号
+     */
+    private static final AtomicInteger THREAD_NUMBER = new AtomicInteger();
+    /**
+     * cpu数量
+     */
+    private static final int PROCESSOR_SIZE = Runtime.getRuntime().availableProcessors();
+    /**
+     * 线程池大小为cpu一半
+     */
+    private static final int THREAD_POLL_SIZE = Optional.of(PROCESSOR_SIZE / 2).filter(it -> it > 1).orElse(1);
+    /**
+     * 固定大小的线程池 保证异步任务不会影响业务系统
+     */
+    private static final ExecutorService SCHEDULE_EXECUTOR = new ThreadPoolExecutor(
+        THREAD_POLL_SIZE,
+        THREAD_POLL_SIZE,
+        0L,
+        TimeUnit.MILLISECONDS,
+        new LinkedBlockingQueue<>(),
+        r -> new Thread(
+            Optional.ofNullable(System.getSecurityManager())
+                .map(SecurityManager::getThreadGroup)
+                .orElseGet(Thread.currentThread()::getThreadGroup),
+            r,
+            String.format("%s-%d", "HV-EMS-EXECUTOR-POOL-THREAD", THREAD_NUMBER.getAndIncrement()),
+            0
+        )
+    );
+
+
+    /**
+     * 异步执行
+     * @param runnable 异步线程
+     */
+    public static void execute(Runnable runnable) {
+        SCHEDULE_EXECUTOR.execute(() -> {
+            try {
+                runnable.run();
+            } catch (Exception e) {
+                log.error(e.getMessage(), e);
+            }
+        });
+    }
+
+    /**
+     * 异步回调
+     * @param callable {@link Callable}
+     * @param <T>      返回值类型
+     * @return {@link Future}
+     */
+    public static <T> Future<T> submit(Callable<T> callable) {
+        return
+            SCHEDULE_EXECUTOR.submit(() -> {
+                try {
+                    return callable.call();
+                } catch (Exception e) {
+                    log.error(e.getMessage(), e);
+                    throw new UtilException(e.getMessage());
+                }
+            });
+    }
+```
 
 
 
@@ -2836,7 +2922,7 @@ private Runnable getTask() {
 
 ![FutureTask类图](.\images\FutureTask类图.png)
 
-> 它继承了Runnable和Future两个接口，Runnable是**执行任务**的接口相当于生产者，Future是**获取任务结果**以及取消任务等相当于消费者，所以实际上FutureTask类可以理解成一个生产者消费者模型的多线程操纵类。
+> 它实现了Runnable和Future两个接口，Runnable是**执行任务**的接口相当于生产者，Future是**获取任务结果**以及取消任务等相当于消费者，所以实际上FutureTask类可以理解成一个生产者消费者模型的多线程操纵类。
 
 
 
@@ -2988,6 +3074,7 @@ class MyThread extends Thread {
             // 1.加锁
             lock.lock();
             // 2.判断是否轮到当前线程，没有轮到则将其阻塞
+            // 注意这儿要用while，把线程批量唤醒后，如果不是该轮到的线程要让其继续阻塞
             while (counter % 3 != flag) {
                 try {
                     condition.await();
@@ -2997,6 +3084,7 @@ class MyThread extends Thread {
             }
             // 执行到这里，表明轮到当前线程了，输出结果
             System.out.println(value);
+            // 输出后累加计数器，并批量唤醒线程，最后解锁
             counter++;
             condition.signalAll();
             lock.unlock();
