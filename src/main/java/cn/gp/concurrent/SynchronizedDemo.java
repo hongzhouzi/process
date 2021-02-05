@@ -1,5 +1,6 @@
 package cn.gp.concurrent;
 
+import org.junit.Test;
 import org.openjdk.jol.info.ClassLayout;
 
 /**
@@ -24,14 +25,14 @@ public class SynchronizedDemo {
         synchronized (obj) {
             // 临界区
         }
-        synchronized (this){
+        synchronized (this) {
 
         }
     }
 
 
     public static void main(String[] args) {
-        classLayout();
+//        classLayout();
 //        upgrade();
 
     }
@@ -39,25 +40,33 @@ public class SynchronizedDemo {
     /**
      *  默认情况下偏向锁时关闭的，在VM options中加上下面语句开启偏向锁
      *  -XX:+UseBiasedLocking -XX:BiasedLockingStartupDelay=0
+     *  【上面结论是错误的】，偏向锁默认情况是打开的，只是会延迟4s启动
      */
     /**
      * 打印锁的存储布局
      */
-    private static void classLayout() {
-        try {
-            Thread.sleep(4500);
+    @Test
+    public void classLayout() {
+        /*try {
+            Thread.sleep(5000);
         } catch (InterruptedException e) {
             e.printStackTrace();
-        }
-        SynchronizedDemo classLayout = new SynchronizedDemo();
-        synchronized (classLayout) {
+        }*/
+        Object[] obj = new Object[20];
+        System.out.println("hashCode：" + obj.hashCode());
+        System.out.println("obj address：" + obj);
+        System.out.println(ClassLayout.parseInstance(obj).toPrintable());
+
+        synchronized (obj) {
             System.out.println("locking");
-            System.out.println("currentThreadId: "+Thread.currentThread().getId());
+            System.out.println("currentThreadId: " + Thread.currentThread().getId());
             // 当计算了hashcode之后就不是偏向锁了，偏向锁存不了hashcode，升级为重量级锁
 //            System.out.println(classLayout.hashCode());
             // 打印对象头，value中展示的二进制和十六进制是按照大端存储模式打印出来的，转成十进制的数据应该从后往前计算每组
             // 大端存储模式：指一个数据的低位字节序的内容放在高地址处，高位字节序存的内容放在低地址处。
-            System.out.println(ClassLayout.parseInstance(classLayout).toPrintable());
+            System.out.println(ClassLayout.parseInstance(obj).toPrintable());
+            System.out.println(obj);
+            System.out.println(obj.hashCode());
         }
     }
 

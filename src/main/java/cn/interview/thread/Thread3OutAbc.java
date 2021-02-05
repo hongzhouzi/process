@@ -25,8 +25,9 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class Thread3OutAbc {
     public static void main(String[] args) {
+       solution2();
 //        new Thread3OutAbc().solution3();
-        new Thread3OutAbc().solution4();
+//        new Thread3OutAbc().solution4();
     }
 
     static void solution1() {
@@ -189,11 +190,11 @@ class MyThread extends Thread {
     public void run() {
         for (int i = 0; i < 10; i++) {
             // 1.加锁
-            lock.lock();
+            /*lock.lock();
             // 2.判断当前线程
             System.out.println("===" + counter + "===" + Thread.currentThread().getName() + "=== lock exclusiveOwnerThread");
             System.out.println("===counter:" + counter + "===counter % 3:" + counter % 3 + "===flag:" + flag + "===currentThread:" + Thread.currentThread().getName() + "===");
-            //
+            // 注意这儿要用while，把线程批量唤醒后，如果不是该轮到的线程要让其继续阻塞
             while (counter % 3 != flag) {
                 try {
                     System.out.println("=====" + Thread.currentThread().getName() + " will await");
@@ -209,7 +210,25 @@ class MyThread extends Thread {
             System.out.println("=====" + Thread.currentThread().getName() + " will signalAll");
             condition.signalAll();
             System.out.println("===" + counter + "===" + Thread.currentThread().getName() + "=== will unlock");
-            lock.unlock();
+            lock.unlock();*/
+
+            synchronized (MyThread.class){
+                // 阻塞其他不符合条件的
+                while (counter % 3 != flag){
+                    try {
+                        MyThread.class.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                // 输出符合条件的value
+                System.out.println(value);
+                counter++;
+
+                // 唤醒其他线程
+                MyThread.class.notifyAll();
+            }
         }
     }
 }
