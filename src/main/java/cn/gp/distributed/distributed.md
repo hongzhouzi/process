@@ -1525,7 +1525,7 @@ typedef struct dictht {
 
 ##### 实现原理
 
-> 3.2版本之后统一用quicklist存储，quicklist存储了一个双向链表，每个节点都是一个ziplist。**数组+链表的结构**。
+> 3.2版本之后统一用quicklist存储，quicklist存储了一个双向链表，每个节点都是一个ziplist（压缩表，极为节省内存的存储结构）。**数组+链表的结构**。
 
 > 看 [quicklist.h](https://github.com/redis/redis/blob/unstable/src/quicklist.h) 中quicklist
 

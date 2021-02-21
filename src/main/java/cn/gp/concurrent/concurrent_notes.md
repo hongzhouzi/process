@@ -397,7 +397,7 @@ public static void main(String[] args) throws InterruptedException {
 
    a. println用到了**synchronized**同步关键字，释放锁的操作会强制把工作内存中涉及的写操作同步到主内存。这个同步会防止循环期间对于stop的缓存。（通过在while代码块中加synchronized关键字也可达到一样效果）
 
-   c. println属于**IO操作？？？**，磁盘IO效率比CPU计算效率低很多，所以可以使得CPU有时间取做内存刷新的事情。（通过在while代码块中定义个new File()也可达到一样效果）
+   c. println属于**IO操作**，磁盘IO效率比CPU计算效率低很多，所以可以使得CPU有时间取做内存刷新的事情。（通过在while代码块中定义个new File()也可达到一样效果）
 
 2. **while代码块中添加Thread.sleep(0)**
 
