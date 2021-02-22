@@ -1098,6 +1098,8 @@ Netty高性能原因
 > ps -ef | grep redis // 检查后台进程是否正在运行
 > ps aux | grep redis // 检查后台进程是否正在运行
 > netstat -lntp | grep 6379 // 检测6379端口是否在监听
+> type key // 查看数据类型
+> object encoding key // 查看内部数据类型的内部编码
 > ```
 
 > Redis默认有16个库（0-15），可以在配置文件redis.conf中修改。
@@ -1238,10 +1240,12 @@ typedef struct redisObject {
 > 主要分为 3 种：
 >
 > 1. int：存储 8 个字节的长整形(long 2^63-1)；
->
 > 2. embstr：embstr格式的SDS，存储长度小于44个字节的字符串；
->
 > 3. raw：存储长度大于44个字节的字符串。
+>
+> 44字节分界点： 将RedisObject 对象头和 SDS 对象连续存在一起，64 - 16（redisObject）- 3（sds头部信息）- 1（\0结束符）=44
+>
+> 前面提到的float类型一般使用embstr存储
 
 
 
@@ -1251,13 +1255,13 @@ typedef struct redisObject {
 >
 > embstr优点：创建时少分配一次空间，删除时少释放一次空间，以及对象的所有数据连在一起，寻找方便。
 >
-> embstr缺点：字符串长度增加需要重新分配内存时整个redisObject和SDS都需要重新分配空间，因此redis中的embstr实现为**只读**，**一旦改动就会为embstr转为raw，再进行修改**。
+> embstr缺点：字符串长度增加需要重新分配内存时整个redisObject和SDS都需要重新分配空间，因此redis中的embstr实现为**只读**，**一旦改动就会为embstr转为raw，再进行修改**。（为什么设计成只读？？？）
 
 ###### int和embstr什么时候转化为raw？
 
 > 1. int 数据不再是整数——> raw
 > 2. int 大小超过了long的范围（2^63-1）——> embstr
-> 3. embstr 发生改动——> raw
+> 3. embstr 发生改动——> raw （注意set覆盖值不属于改动）
 >
 > 转换过程都是**不可逆**的，只能**从小内存编码向大内存编码转换**（**不包括重新set**）。
 
@@ -1358,7 +1362,7 @@ hlen key; // 获取hash的长度
 
 ###### ziplist
 
-> 经过特殊编码，由连续内存块组成的双向链表。它和普通双向链表不一样节点的指针，它存的是**上个节点长度**和**当前节点长度**，读写可能会慢些（计算长度），但可以节省内存，时间换空间的思想。
+> 经过特殊编码，由**连续内存块组成的双向链表**。它和普通双向链表不一样节点的指针，它存的是**上个节点长度**和**当前节点长度**，读写可能会慢些（计算长度），但可以节省内存，时间换空间的思想。
 
 > 内部结构看 [ziplist.c](https://github.com/redis/redis/blob/unstable/src/ziplist.c) 第16行注释
 >
