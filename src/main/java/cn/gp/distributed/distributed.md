@@ -1132,6 +1132,22 @@ Netty高性能原因
 
 > Redis存储的key-value中key的最大长度限制是512M，值的限制不同，有长度限制、个数限制的。
 
+> vim中搜索：
+>
+> 1. 命令模式下，输入：/字符串
+>
+> 比如搜索user, 输入/user
+>
+> 按下回车之后，可以看到vim已经把光标移动到该字符处和高亮了匹配的字符串
+>
+> 2. 查看下一个匹配，按下n(小写n)
+>
+> 3. 跳转到上一个匹配，按下N（大写N）
+>
+> 4. 搜索后，我们打开别的文件，发现也被高亮了，怎么关闭高亮？
+>
+> ​    命令模式下，输入:nohlsearch  也可以:set nohlsearch； 当然，可以简写，noh或者set noh。
+
 
 
 ### 数据类型
@@ -1255,7 +1271,7 @@ typedef struct redisObject {
 >
 > embstr优点：创建时少分配一次空间，删除时少释放一次空间，以及对象的所有数据连在一起，寻找方便。
 >
-> embstr缺点：字符串长度增加需要重新分配内存时整个redisObject和SDS都需要重新分配空间，因此redis中的embstr实现为**只读**，**一旦改动就会为embstr转为raw，再进行修改**。（为什么设计成只读？？？）
+> embstr缺点：字符串长度增加需要重新分配内存时整个redisObject和SDS都需要重新分配空间，因此redis中的embstr实现为**只读**，**一旦改动就会为embstr转为raw，再进行修改**。
 
 ###### int和embstr什么时候转化为raw？
 
@@ -1362,11 +1378,16 @@ hlen key; // 获取hash的长度
 
 ###### ziplist
 
-> 经过特殊编码，由**连续内存块组成的双向链表**。它和普通双向链表不一样节点的指针，它存的是**上个节点长度**和**当前节点长度**，读写可能会慢些（计算长度），但可以节省内存，时间换空间的思想。
+> 经过特殊编码，由**连续内存块组成的双向链表**。它和普通双向链表不一样节点的指针，它存的是**上个节点长度**和**当前节点长度**，（读数据时根据当前地址和上个节点长度计算上个节点或下个节点地址），但可以节省内存，时间换空间的思想。
 
 > 内部结构看 [ziplist.c](https://github.com/redis/redis/blob/unstable/src/ziplist.c) 第16行注释
 >
 > <zlbytes> <zltail> <zllen> <entry> <entry> ... <entry> <zlend>
+>
+> `zlbytes` 内存占用：内存重分配或计算 zlend的位置时使用
+> `zltail` 到列表尾部的偏移：可直接找到尾结点
+> `zllen` 节点数
+> `zlend` 末端标记符
 
 
 
@@ -1393,6 +1414,8 @@ typedef struct zlentry {
                                     is, this points to prev-entry-len field. */
 } zlentry;
 ```
+
+> 保存的同一键值对是紧挨着的，先是键后是值。依次添加的键值对，在ziplist中依次排列。
 
 ![image-20210107215513170](distributed.assets/image-20210107215513170.png)
 
@@ -1522,7 +1545,18 @@ typedef struct dictht {
 ##### 操作命令
 
 ```c
-
+// 元素增减
+lpush queue a
+lpush queue b c
+rpush queue d e
+lpop queue
+rpop queue
+// 取值
+lindex queue 0
+lrange queue 0 -1
+// 阻塞弹栈
+blpop key timeout
+brpop key timeout
 ```
 
 
@@ -1588,6 +1622,8 @@ typedef struct quicklistNode {
 ```
 
 > 整体存储结构如下图所示：
+>
+> 存储时，ziplist能存储下就依次存ziplist中否则新建一个quicklistNode存ziplist。quicklistNode中ziplist长度默认最大为64字节，最多512个实体。可在配置文件配置
 
 ![image-20210108141032844](distributed.assets/image-20210108141032844.png)
 
@@ -1629,6 +1665,20 @@ typedef struct quicklistNode {
 ##### 操作命令
 
 ```c
+//添加一个或者多个元素
+sadd myset abcdefg
+//获取所有元素
+smembers myset
+//统计元素个数
+scard myset
+// 随机获取一个元素
+srandmember myset
+//随机弹出一个元素
+spop myset
+// 移除一个或者多个元素
+srem mysetde f
+// 查看元素是否存在
+sismember myset a
 
 ```
 
@@ -1708,6 +1758,26 @@ typedef struct intset {
 ##### 操作命令
 
 ```c
+// 添加元素
+zadd myzset 10 java 20 php 30 ruby 40 cpp 50 python
+// 获取全部元素
+zrange myzset 0 -1 withscores
+zrevrange myzset 0-1 withscores
+// 根据分值区间获取元素
+zrangebyscore myzset 20 30
+// 移除元素也可以根据score rank删除
+zrem myzset php cpp
+// 统计元素个数
+zcard myzset
+// 分值递增
+zincrby myzset 5 python
+// 根据分值统计个数
+zcount myzset 20 60
+// 获取元素rank
+zrank myzset python
+// 获取元素score
+zscore myzset python
+// 也有倒序的rev操作(reverse )
 
 ```
 
@@ -1750,6 +1820,10 @@ typedef struct intset {
 > ```
 >
 > 因此生成的 level 是随机的，上面举例的链表也可能是这种
+>
+> 基于概率统计的插入算法也能得到时间复杂度为O(logn)的查询效率，思想是：让L2层元素个数是L1的1/2，L3层元素个数是L2层的1/2，对于1/2的概率用抛硬币的思想做，代码实现中采用随机数。
+>
+> https://blog.csdn.net/u013709270/article/details/53470428
 >
 > ![image-20210108205453439](distributed.assets/image-20210108205453439.png)
 
@@ -1942,8 +2016,8 @@ https://redis.io/topics/transactions/
 > 使用lua脚本来执行Redis命令的好处：
 >
 > 1. 一次发送多个命令，减少网络开销
-> 2. Redis会将整个脚本作为一个整体执行，不会被其他请求打断，保存**原子性**。
-> 3. 对于复杂的组合命令，放在脚本中实现命令复用。
+> 2. Redis会将整个脚本作为一个整体执行，不会被其他请求打断，保整**原子性**
+> 3. 对于复杂的组合命令，放在脚本中实现命令复用
 
 
 

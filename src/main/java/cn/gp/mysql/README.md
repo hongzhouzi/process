@@ -955,7 +955,9 @@ https://www.cs.usfca.edu/~galles/visualization/Algorithms.html
 >
 > **DB_ROLL_PTR**(7 字节)：回滚指针，记录删除版本号。**数据被删除或记录为旧数据的时候，记录当前事务ID**，没有修改或者删除的时候是空。
 >
-> InnoDB中一条数据的旧版本存放在undo log中，因为可修改多次所以这些undo log会形成一条链，叫做**undo log链**。DB_ROLL_PTR就是记录指向undo log链的指针。
+> InnoDB中一条数据update时会将相应的记录存放在undo log中，因为很多个这样的记录就会形成一条链，叫做**undo log链**。DB_ROLL_PTR就是记录指向undo log链的指针。
+>
+> ![3540ab68a4426a09bce625559f968adf](README.assets/3540ab68a4426a09bce625559f968adf.png)
 
 
 
