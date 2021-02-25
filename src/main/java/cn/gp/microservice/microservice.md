@@ -110,17 +110,17 @@ spring5.X
 >
 > Registator：ImportBeanDefinitionRegistrar
 
-通过实现ImportSelector接口，在重新的方法中写需要导入的配置类或bean的getName()（动态装载），然后返回该字符串数组。
+通过实现ImportSelector接口，在重写的方法中写需要导入的配置类或bean的getName()（动态装载），然后返回该字符串数组。
 
 ```java
 public class MyDefineImportSelector implements ImportSelector{
     @Override
     public String[] selectImports(AnnotationMetadata importingClassMetadata) {
-        //动态导入bean, 告诉了Spring  ， 两个配置类在哪里
+        // 动态导入bean, 告诉了Spring  ， 两个配置类在哪里
 
-        //TODO 在这里去加载所有的配置类就行？
+        // TODO 在这里去加载所有的配置类就行？
         // 通过某种机制去完成指定路径的配置类的扫描就行？
-        //package.class.classname
+        // package.class.classname
         return new String[]{MySqlSessionFactory.class.getName(), RedisConfiguration.class.getName()};
     }
 }

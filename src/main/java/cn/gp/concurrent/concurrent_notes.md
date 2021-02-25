@@ -2771,8 +2771,11 @@ public void run() {
 >
 > 核心线程和临时线程没有区分，回收线程时只需要从数量上保证核心线程个数就行了。
 >
-> 
+> **非核心线程的回收：**
 >
+> getTake()中向阻塞队列取数据时通过poll(long timeout, TimeUnit unit)取，如果有线程等了一定时间还没取到数据就会返回失败，那么该线程while循环就会结束，就意味着该线程会被回收了。
+>
+> poll(long timeout, TimeUnit unit)：从BlockingQueue取出一个队首的对象，如果在指定时间内有数据可取，则立即返回队列中的数据。否则等到时间超时还没有数据可取，返回失败(异常)。
 
 ```java
 final void runWorker(Worker w) {
