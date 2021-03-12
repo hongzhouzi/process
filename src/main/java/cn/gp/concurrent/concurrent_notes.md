@@ -686,6 +686,8 @@ volatile关键字引入了一个lock指令，触发CPU层面锁的一个操作�
 
 ThreadLocalMap采用线性探索，因为它里面存储的数据不大，用线性探索就可以满足了，不用链式。
 
+![ThreadLocal](concurrent_notes.assets/ThreadLocal.png)
+
 ### 面试题
 
 1. **sleep、join、yiled的区别**
